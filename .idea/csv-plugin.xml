@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\german_credit_risk.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\main.py">
           <value>
             <Attribute>
