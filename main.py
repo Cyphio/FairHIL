@@ -1,2 +1,2 @@
-from wizard import ModeSelection
-ModeSelection().launch()
+from wizard import *
+ModeSelection().launch_self()

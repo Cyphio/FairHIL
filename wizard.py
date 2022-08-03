@@ -53,7 +53,7 @@ class Configure:
 
         # Defining hooks
 
-    def launch(self, dataset, mode):
+    def launch_self(self, dataset, mode):
         features = list(dataset.columns.values)
         self.target_feature.update(options=features)
         self.sensi_feats_choice.update(options=features)
@@ -87,30 +87,35 @@ class ModeSelection:
     file_input_div = Div()
     selection_div = Div()
     file_input = FileInput()
-    basic_button = Button()
-    advanced_button = Button()
+    mode_button = RadioButtonGroup()
     submit = Button()
+
+    callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
 
     def __init__(self):
         # Instantiating UI components
         self.file_input_div = Div(text="Drag and drop or click to upload CSV ML Dataset from local machine:")
-        self.selection_div = Div(text="Please choose a set-up mode")
+        self.selection_div = Div(text="Please choose a set-up mode:")
         self.file_input = FileInput(accept=".csv")
-        self.basic_button = Toggle(label="Basic", button_type="success")
-        self.advanced_button = Toggle(label="Advanced", button_type="success")
+        self.mode_button = RadioButtonGroup(labels=["BASIC", "ADVANCED"], active=0)
         self.submit = Button(label="Submit", button_type="success")
 
-        # Defining hooks
-        self.basic_button.on_click(partial(self.set_mode, self, mode=Mode.BASIC))
-        self.advanced_button.on_click(partial(self.set_mode, self, mode=Mode.ADVANCED))
-        self.file_input.on_change('value', self.set_dataset)
-        self.submit.on_click(self.launch_configure)
+        # Setting initial mode as BASIC
+        self.MODE = Mode.BASIC
 
-    def launch(self):
+        # Defining hooks
+        self.file_input.on_change('value', self.set_dataset)
+        self.mode_button.on_change('active', self.set_mode)
+        self.submit.on_click(self.launch_next)
+
+        self.callback_holder.js_on_change('text', CustomJS(args={}, code='alert(cb_obj.text);'))
+
+    def launch_self(self):
         ui = gridplot([
             [self.file_input_div, self.file_input],
-            [self.selection_div],
-            [self.basic_button, self.advanced_button]
+            [self.selection_div, self.mode_button],
+            [self.submit],
+            [self.callback_holder]
         ])
         curdoc().add_root(ui)
         return ui
@@ -120,14 +125,17 @@ class ModeSelection:
         file = io.BytesIO(decoded)
         self.DATASET = pd.read_csv(file, index_col=[0])
 
-    def set_mode(self, mode):
-        self.MODE = mode
-        if mode.value == 1:
-            self.advanced_button.active = False
-        else:
-            self.basic_button.active = False
+    def set_mode(self, attr, old, new):
+        if self.mode_button.active == 0:
+            self.MODE = Mode.BASIC
+        elif self.mode_button.active == 1:
+            self.MODE = Mode.ADVANCED
+        print(self.MODE)
 
-    def launch_configure(self):
-        # Add checks to stop empty dataset and unselected mode here
-        curdoc().clear()
-        curdoc().add_root(Configure().launch(self.DATASET, self.MODE))
+    def launch_next(self):
+        if len(self.DATASET) == 0:
+            print("Alert")
+            self.callback_holder.text = "Please upload a Dataset"
+        else:
+            curdoc().clear()
+            curdoc().add_root(Configure().launch_self(self.DATASET, self.MODE))
