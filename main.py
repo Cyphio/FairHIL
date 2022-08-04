@@ -1,2 +1,2 @@
-from configuration_wizard import *
-ModeSelection().launch_self()
+from wizard import *
+Wizard().launch_stage_1()
