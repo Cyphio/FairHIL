@@ -18,6 +18,7 @@ class FairHIL:
 
 		print(self.CONFIG.DATASET)
 		print(self.CONFIG.SENSITIVE_FEATS)
+		print(self.CONFIG.DISCOVERY_ALG)
 
 	def launch_ui(self):
 		curdoc().title = "FairHIL"

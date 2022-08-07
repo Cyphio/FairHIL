@@ -6,45 +6,15 @@ class Configuration:
 
 	def __init__(self):
 		self.DATASET = pd.DataFrame()
-		self.DATASET_FEATS = [str]
+		self.DATASET_FEATS = []
 		self.MODE = ModeOptions
-		self.SENSITIVE_FEATS = [str]
-		self.TARGET_FEAT = str
+		self.SENSITIVE_FEATS = []
+		self.TARGET_FEAT = None
 		self.DEEP_DIVE_METRICS = [FairnessMetrics]
 		self.PRIMARY_METRIC = FairnessMetrics
 		self.BINNING_PROCESS = BinningProcesses
 		self.DISCOVERY_ALG = DiscoveryAlgorithms
 		self.CARD_GEN_PROCESS = CardGenerationProcesses
-
-	def set_dataset(self, file):
-		self.DATASET = pd.read_csv(file, index_col=[0])
-
-	def set_dataset_feats(self, dataset_feats):
-		self.DATASET_FEATS = dataset_feats
-
-	def set_mode(self, mode):
-		self.MODE = mode
-
-	def set_sensitive_feats(self, sensitive_feats):
-		self.SENSITIVE_FEATS = sensitive_feats
-
-	def set_target_feat(self, target_feat):
-		self.TARGET_FEAT = target_feat
-
-	def set_deep_dive_metrics(self, deep_dive_metrics):
-		self.DEEP_DIVE_METRICS = deep_dive_metrics
-
-	def set_primary_metric(self, primary_metric):
-		self.PRIMARY_METRIC = primary_metric
-
-	def set_binning_process(self, binning_process):
-		self.BINNING_PROCESS = binning_process
-
-	def set_discovery_alg(self, discovery_alg):
-		self.DISCOVERY_ALG = discovery_alg
-
-	def set_card_gen_process(self, card_gen_process):
-		self.CARD_GEN_PROCESS = card_gen_process
 
 
 def get_options(enum):

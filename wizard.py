@@ -13,13 +13,13 @@ class Wizard:
 
 	def __init__(self):
 		self.CONFIG = Configuration()  # Instantiating configuration class
-		self.CONFIG.set_mode(ModeOptions.BASIC)  # Initial mode is set to basic
+		self.CONFIG.MODE = ModeOptions.BASIC  # Initial mode is set to basic
 
 		# Instantiating Stage1 UI components
 		self.file_input_div = Div(text="Drag and drop or click to upload CSV ML Dataset from local machine:")
 		self.selection_div = Div(text="Please choose a set-up mode:")
 		self.file_input = FileInput(accept=".csv")
-		self.mode_button = RadioButtonGroup(labels=get_options(self.CONFIG.MODE), active=0)
+		self.mode_button = RadioButtonGroup(labels=get_options(ModeOptions), active=0)
 		self.submit_stage_1 = Button(label="Submit", button_type="success")
 		self.callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
 
@@ -68,13 +68,13 @@ class Wizard:
 	def set_dataset(self, attr, old, new):
 		decoded = base64.b64decode(new)
 		file = io.BytesIO(decoded)
-		self.CONFIG.set_dataset(file)
+		self.CONFIG.DATASET = pd.read_csv(file, index_col=[0])
 
 	def set_mode(self, attr, old, new):
 		if self.mode_button.active == 0:
-			self.CONFIG.set_mode(ModeOptions.BASIC)
+			self.CONFIG.MODE = ModeOptions.BASIC
 		elif self.mode_button.active == 1:
-			self.CONFIG.set_mode(ModeOptions.ADVANCED)
+			self.CONFIG.MODE = ModeOptions.ADVANCED
 		print(self.CONFIG.MODE)
 
 	def launch_stage_2(self):
@@ -85,7 +85,7 @@ class Wizard:
 			curdoc().clear()
 			curdoc().title = "Wizard Stage 2"
 			dataset_feats = list(self.CONFIG.DATASET.columns.values)
-			self.CONFIG.set_dataset_feats(dataset_feats)
+			self.CONFIG.DATASET_FEATS = dataset_feats
 			self.target_feature.update(options=dataset_feats, value=dataset_feats[-1])
 			self.sensi_feats_choice.update(options=dataset_feats)
 			if self.CONFIG.MODE.value == 1:
@@ -114,5 +114,11 @@ class Wizard:
 
 	def launch_fairhil(self):
 		print("Launching FairHIL")
-		# Need to set config file here!!!!!!!!!
+		self.CONFIG.SENSITIVE_FEATS = self.sensi_feats_choice.value
+		self.CONFIG.TARGET_FEAT = self.target_feature.value
+		self.CONFIG.DEEP_DIVE_METRICS = self.deep_dive_metrics.value
+		self.CONFIG.PRIMARY_METRIC = self.primary_metric.value
+		self.CONFIG.BINNING_PROCESS = self.binning_process.value
+		self.CONFIG.DISCOVERY_ALG = self.discovery_algorithm.value
+		self.CONFIG.CARD_GEN_PROCESS = self.card_generation.value
 		fh = FairHIL(self.CONFIG)
