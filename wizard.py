@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from configuration import *
 from fairhil import *
+from sklearn import preprocessing
 
 
 class Wizard:
@@ -42,17 +43,38 @@ class Wizard:
 		self.sensi_feats_choice = MultiChoice()
 		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=list(
 			np.random.choice(get_options(FairnessMetrics), size=2,
-							 replace=False)))  # Randomly generating 2 deep-dive metrics
+			replace=False)))  # Randomly generating 2 deep-dive metrics
 		self.primary_metric = Select(options=get_options(FairnessMetrics), value=FairnessMetrics.SPD.string)
 		self.binning_process = Select(options=get_options(BinningProcesses), value=BinningProcesses.SQUAREROOT.string)
 		self.discovery_algorithm = Select(options=get_options(DiscoveryAlgorithms),
-										  value=DiscoveryAlgorithms.DEFAULT.string)
+			value=DiscoveryAlgorithms.DEFAULT.string)
 		self.card_generation = Select(options=get_options(CardGenerationProcesses),
-									  value=CardGenerationProcesses.MANUAL.string)
+			value=CardGenerationProcesses.MANUAL.string)
 		self.submit_stage_2 = Button(label="Submit", button_type="success")
 
 		# Defining Stage2 hooks
 		self.submit_stage_2.on_click(self.launch_fairhil)
+
+	def set_dataset(self, attr, old, new):
+		# Loading dataset into Pandas Dataframe
+		decoded = base64.b64decode(new)
+		file = io.BytesIO(decoded)
+		self.CONFIG.DATASET = pd.read_csv(file, index_col=[0])
+
+		# Encoding dataset (i.e. metricising categorical columns)
+		self.CONFIG.ENCODED_DATASET = self.CONFIG.DATASET.copy()
+		cat_columns = self.CONFIG.ENCODED_DATASET.select_dtypes(['object']).columns
+		self.CONFIG.ENCODED_DATASET[cat_columns] = self.CONFIG.ENCODED_DATASET[cat_columns].apply(
+			lambda x: pd.factorize(x, na_sentinel=-1)[0])
+		# self.CONFIG.ENCODED_DATASET = preprocessing.StandardScaler().fit_transform(self.CONFIG.ENCODED_DATASET)
+
+
+	def set_mode(self, attr, old, new):
+		if self.mode_button.active == 0:
+			self.CONFIG.MODE = ModeOptions.BASIC
+		elif self.mode_button.active == 1:
+			self.CONFIG.MODE = ModeOptions.ADVANCED
+		print(self.CONFIG.MODE)
 
 	def launch_stage_1(self):
 		curdoc().clear()
@@ -64,18 +86,6 @@ class Wizard:
 		ui = column(grid, self.submit_stage_1, self.callback_holder)
 		curdoc().add_root(ui)
 		return ui
-
-	def set_dataset(self, attr, old, new):
-		decoded = base64.b64decode(new)
-		file = io.BytesIO(decoded)
-		self.CONFIG.DATASET = pd.read_csv(file, index_col=[0])
-
-	def set_mode(self, attr, old, new):
-		if self.mode_button.active == 0:
-			self.CONFIG.MODE = ModeOptions.BASIC
-		elif self.mode_button.active == 1:
-			self.CONFIG.MODE = ModeOptions.ADVANCED
-		print(self.CONFIG.MODE)
 
 	def launch_stage_2(self):
 		if len(self.CONFIG.DATASET) == 0:
@@ -122,3 +132,4 @@ class Wizard:
 		self.CONFIG.DISCOVERY_ALG = self.discovery_algorithm.value
 		self.CONFIG.CARD_GEN_PROCESS = self.card_generation.value
 		fh = FairHIL(self.CONFIG)
+		fh.launch_ui()

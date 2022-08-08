@@ -6,6 +6,7 @@ class Configuration:
 
 	def __init__(self):
 		self.DATASET = pd.DataFrame()
+		self.ENCODED_DATASET = pd.DataFrame()
 		self.DATASET_FEATS = []
 		self.MODE = ModeOptions
 		self.SENSITIVE_FEATS = []
