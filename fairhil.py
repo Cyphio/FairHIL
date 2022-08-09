@@ -23,13 +23,13 @@ class FairHIL():
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"   # Path to Rscript.exe
 
 		self.ui = None
-		self.overview = None
+		self.overview = Spacer()
 		self.causal_graph = self.load_causal_graph()
-		self.distribution = None
-		self.relationships_view = Plot(width=200, height=200)
-		self.explore_dataset = None
-		self.combinations = None
-		self.comparator = None
+		self.distribution = Spacer()
+		self.relationships = Spacer()
+		self.explore_dataset = Spacer()
+		self.combinations = Spacer()
+		self.comparator = Spacer()
 
 	def launch_ui(self):
 		curdoc().title = "FairHIL"
@@ -46,8 +46,11 @@ class FairHIL():
 		# 	[self.relationships, self.combinations, self.comparator]
 		# ])
 
-		self.ui = column(self.causal_graph, self.relationships_view)
-
+		self.ui = layout(children=[
+			[self.overview],
+			[self.causal_graph, self.distribution, self.explore_dataset],
+			[self.relationships, self.combinations, self.comparator]
+		], sizing_mode="fixed")
 		print(self.ui.children)
 
 		# self.ui = Column(self.causal_graph, self.relationships)
@@ -113,5 +116,5 @@ class FairHIL():
 			hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, int(new[0])], weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT])
 			f = figure(width=200, height=200)
 			f.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], line_color="white")
-			self.ui.children[1] = f
+			self.ui.children[1].children[1] = f
 
