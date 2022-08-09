@@ -61,7 +61,9 @@ class FairnessMetrics(aenum.Enum):
 
 class DiscoveryAlgorithms(aenum.Enum):
 	_init_ = "value string"
-	DEFAULT = 0, "Default"
+	PC = 0, "PC: Peter Spirtes & Clark Glymour"
+	GES = 1, "GES: Greedy Equivalence Search"
+	LINGAM = 2, "LiNGAM: Linear Non-Gaussian Acyclic Model"
 
 	def __str__(self):
 		return self.string

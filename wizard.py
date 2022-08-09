@@ -41,13 +41,14 @@ class Wizard:
 
 		self.target_feature = Select()
 		self.sensi_feats_choice = MultiChoice()
-		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=list(
-			np.random.choice(get_options(FairnessMetrics), size=2,
-			replace=False)))  # Randomly generating 2 deep-dive metrics
+		# self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=list(
+		# 	np.random.choice(get_options(FairnessMetrics), size=2,
+		# 	replace=False)))  # Randomly generating 2 deep-dive metrics
+		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics))
 		self.primary_metric = Select(options=get_options(FairnessMetrics), value=FairnessMetrics.SPD.string)
 		self.binning_process = Select(options=get_options(BinningProcesses), value=BinningProcesses.SQUAREROOT.string)
 		self.discovery_algorithm = Select(options=get_options(DiscoveryAlgorithms),
-			value=DiscoveryAlgorithms.DEFAULT.string)
+			value=DiscoveryAlgorithms.PC.string)
 		self.card_generation = Select(options=get_options(CardGenerationProcesses),
 			value=CardGenerationProcesses.MANUAL.string)
 		self.submit_stage_2 = Button(label="Submit", button_type="success")
@@ -65,7 +66,7 @@ class Wizard:
 		self.CONFIG.ENCODED_DATASET = self.CONFIG.DATASET.copy()
 		cat_columns = self.CONFIG.ENCODED_DATASET.select_dtypes(['object']).columns
 		self.CONFIG.ENCODED_DATASET[cat_columns] = self.CONFIG.ENCODED_DATASET[cat_columns].apply(
-			lambda x: pd.factorize(x, na_sentinel=-1)[0])
+			lambda x: pd.factorize(x)[0])
 		# self.CONFIG.ENCODED_DATASET = preprocessing.StandardScaler().fit_transform(self.CONFIG.ENCODED_DATASET)
 
 
