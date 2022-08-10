@@ -67,7 +67,6 @@ class Wizard:
 		cat_columns = self.CONFIG.ENCODED_DATASET.select_dtypes(['object']).columns
 		self.CONFIG.ENCODED_DATASET[cat_columns] = self.CONFIG.ENCODED_DATASET[cat_columns].apply(
 			lambda x: pd.factorize(x)[0])
-		# self.CONFIG.ENCODED_DATASET = preprocessing.StandardScaler().fit_transform(self.CONFIG.ENCODED_DATASET)
 
 
 	def set_mode(self, attr, old, new):
@@ -133,4 +132,4 @@ class Wizard:
 		self.CONFIG.DISCOVERY_ALG = self.discovery_algorithm.value
 		self.CONFIG.CARD_GEN_PROCESS = self.card_generation.value
 		fh = FairHIL(self.CONFIG)
-		fh.launch_ui()
+		# fh.launch_ui()
