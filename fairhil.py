@@ -1,23 +1,14 @@
-from functools import partial
-from bokeh.transform import linear_cmap
-from configuration import *
-from bokeh.io import *
-from bokeh.models import *
-from bokeh.layouts import *
-from bokeh.plotting import *
-from bokeh.palettes import *
-from bokeh.colors import named
-from bokeh import events
 import cdt
 import networkx as nx
-import matplotlib.pyplot as plt
-import numpy as np
-from aif360.metrics import *
-from aif360.datasets import *
-from sklearn import metrics
+from bokeh.colors import named
+from bokeh.layouts import *
+from bokeh.models import *
+from bokeh.palettes import *
+from bokeh.plotting import *
+from configuration import *
 
 
-class FairHIL():
+class FairHIL:
 
 	def __init__(self, config):
 		self.CONFIG = config
@@ -26,23 +17,24 @@ class FairHIL():
 
 		self.ui = None
 
-		self.get_fairness()
-
 		# Loading/instantiating UI components
 		self.overview = Spacer()
 		self.causal_graph_fig = self.load_causal_graph()
 		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_graph()
+		self.fairness_cds, self.fairness_fig, self.fairness_data = self.load_fairness_graph()
 		self.relationships_fig = Spacer()
 		self.explore_dataset_fig = Spacer()
 		self.combinations_fig = Spacer()
 		self.comparator_fig = Spacer()
+
+		self.launch_ui()
 
 	def launch_ui(self):
 		curdoc().title = "FairHIL"
 		curdoc().clear()
 		self.ui = layout(children=[
 			[self.overview],
-			[self.causal_graph_fig, self.distribution_fig, self.explore_dataset_fig],
+			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.explore_dataset_fig],
 			[self.relationships_fig, self.combinations_fig, self.comparator_fig]
 		], sizing_mode="fixed")
 		curdoc().add_root(self.ui)
@@ -90,7 +82,7 @@ class FairHIL():
 		source = ColumnDataSource({'x': x, 'y': y, 'field': self.CONFIG.ENCODED_DATASET.columns})
 		labels = LabelSet(x='x', y='y', text='field', source=source)
 
-		graph_renderer.node_renderer.data_source.selected.on_change("indices", self.update_distribution_cds)
+		graph_renderer.node_renderer.data_source.selected.on_change("indices", self.update_distribution_cds, self.update_fairness_cds)
 
 		plot.renderers.append(graph_renderer)
 		plot.renderers.append(labels)
@@ -117,9 +109,35 @@ class FairHIL():
 		if new:
 			self.distribution_cds.data = self.distribution_data[int(new[0])]
 
-	def get_fairness(self):
-		binary_label_ds = BinaryLabelDataset(df=self.CONFIG.ENCODED_DATASETIniti, label_names=self.CONFIG.ENCODED_DATASET.columns, protected_attribute_names=self.CONFIG.SENSITIVE_FEATS)
-		train, test = binary_label_ds.split(2, shuffle=True)
-		metric_ds = BinaryLabelDatasetMetric(train, privileged_groups=self.CONFIG.SENSITIVE_FEATS)
-		print(f"SPD: {metric_ds.mean_difference()}")
+	def load_fairness_graph(self):
+		fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
 
+		fairness_fig = figure(width=math.floor(self.plot_size/2), height=math.floor(self.plot_size*0.25), x_range=Range1d(0, 1), title="Fairness", title_location="left", tools="")
+		fairness_fig.hbar(y='y', right='right', left=0, height=0.5, source=fairness_cds)
+		fairness_fig.yaxis.major_tick_line_color = None
+		fairness_fig.yaxis.minor_tick_line_color = None
+
+		fairness_data = []
+		for column_idx in range(len(self.CONFIG.ENCODED_DATASET.columns)):
+			val = self.get_fairness_value(column_idx)
+			fairness_data.append({'y': [1], 'right': [val]})
+
+		return fairness_cds, fairness_fig, fairness_data
+
+	def get_fairness_value(self, column_idx):
+		# binary_label_ds = BinaryLabelDataset(df=self.CONFIG.ENCODED_DATASET, label_names=self.CONFIG.ENCODED_DATASET.columns, protected_attribute_names=self.CONFIG.SENSITIVE_FEATS)
+		# binary_label_ds = BinaryLabelDataset(df=self.CONFIG.ENCODED_DATASET, label_names=['label'],
+		#                                      protected_attribute_names=self.CONFIG.SENSITIVE_FEATS)
+		# train, test = binary_label_ds.split(2, shuffle=True)
+		# metric_ds = BinaryLabelDatasetMetric(train, privileged_groups=self.CONFIG.SENSITIVE_FEATS)
+
+		# standard_ds = StandardDataset(self.CONFIG.ENCODED_DATASET, label_name=self.CONFIG.TARGET_FEAT, favorable_classes=[1], protected_attribute_names=self.CONFIG.SENSITIVE_FEATS, privileged_classes=[[1]])
+		# metric = BinaryLabelDatasetMetric(df=standard_ds, label_names=self.CONFIG.ENCODED_DATASET.columns, protected_attribute_names=self.CONFIG.SENSITIVE_FEATS)
+		# print(f"SPD: {metric.mean_difference()}")
+		return column_idx*0.1
+
+
+	def update_fairness_cds(self, attr, old, new):
+		if new:
+			print("Update to fairness_cds")
+			self.fairness_cds.data = self.fairness_data[int(new[0])]

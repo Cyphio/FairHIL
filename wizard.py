@@ -1,13 +1,6 @@
 import base64
 import io
-from bokeh.io import *
-from bokeh.models import *
-from bokeh.layouts import *
-import numpy as np
-import pandas as pd
-from configuration import *
 from fairhil import *
-from sklearn import preprocessing
 
 
 class Wizard:
@@ -132,4 +125,3 @@ class Wizard:
 		self.CONFIG.DISCOVERY_ALG = self.discovery_algorithm.value
 		self.CONFIG.CARD_GEN_PROCESS = self.card_generation.value
 		fh = FairHIL(self.CONFIG)
-		# fh.launch_ui()
