@@ -6,6 +6,8 @@ from bokeh.models import *
 from bokeh.palettes import *
 from bokeh.plotting import *
 from configuration import *
+import hvplot.networkx as hvnx
+import holoviews as hv
 
 
 class FairHIL:
@@ -19,11 +21,11 @@ class FairHIL:
 
 		# Loading/instantiating UI components
 		self.overview = Spacer()
-		self.causal_graph_fig = self.load_causal_graph()
-		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_graph()
-		self.fairness_cds, self.fairness_fig, self.fairness_data = self.load_fairness_graph()
+		self.causal_graph_fig = self.load_causal_graph_fig()
+		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
+		self.fairness_cds, self.fairness_fig, self.fairness_data = self.load_fairness_fig()
 		self.relationships_fig = Spacer()
-		self.explore_dataset_fig = Spacer()
+		self.dataset_fig = self.load_dataset_fig()
 		self.combinations_fig = Spacer()
 		self.comparator_fig = Spacer()
 
@@ -34,12 +36,12 @@ class FairHIL:
 		curdoc().clear()
 		self.ui = layout(children=[
 			[self.overview],
-			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.explore_dataset_fig],
+			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.dataset_fig],
 			[self.relationships_fig, self.combinations_fig, self.comparator_fig]
 		], sizing_mode="fixed")
 		curdoc().add_root(self.ui)
 
-	def load_causal_graph(self):
+	def load_causal_graph_fig(self):
 		if DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 1:
 			print("GES")
 			alg = cdt.causality.graph.GES()
@@ -54,33 +56,33 @@ class FairHIL:
 
 		plot = Plot(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1), title="Causal Discovery Graph", title_location="left")
 		plot.add_tools(HoverTool(tooltips=None), TapTool())    # PanTool(), WheelZoomTool()
-		graph_renderer = from_networkx(G, nx.circular_layout(G, scale=0.9, center=(0, 0)), scale=1, center=(0, 0))
+		hv_graph = hv.Graph.from_networkx(G,  nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
+		hv_rendered = hv.render(hv_graph, 'bokeh')
+		graph_renderer = hv_rendered.select_one(GraphRenderer)
 
-		node_normal_color = named.silver
-		node_hover_color = named.tomato
-		node_selection_color = named.tomato
-		edge_normal_color = named.silver
-		edge_hover_color = named.coral
-		edge_selection_color = named.coral
+		node_normal_color = named.deepskyblue
+		node_hover_color = named.violet
+		node_selection_color = named.violet
+		edge_normal_color = named.dimgray
+		edge_hover_color = named.magenta
+		edge_selection_color = named.magenta
 
 		graph_renderer.node_renderer.data_source.data['degrees'] = [(val+1)*10 for (node, val) in nx.degree(G)]
 		graph_renderer.node_renderer.data_source.data['colors'] = [named.gold if feat in self.CONFIG.SENSITIVE_FEATS else node_normal_color for feat in self.CONFIG.DATASET_FEATS]
 
-		graph_renderer.node_renderer.glyph = Circle(size='degrees', fill_color='colors', )
-		graph_renderer.node_renderer.selection_glyph = Circle(size='degrees', fill_color=node_selection_color)
-		graph_renderer.node_renderer.hover_glyph = Circle(size='degrees', fill_color=node_hover_color)
+		graph_renderer.node_renderer.glyph = Circle(size='degrees', fill_color='colors', fill_alpha=0.5)
+		graph_renderer.node_renderer.selection_glyph = Circle(size='degrees', fill_color=node_selection_color, fill_alpha=0.5)
+		graph_renderer.node_renderer.hover_glyph = Circle(size='degrees', fill_color=node_hover_color, fill_alpha=0.5)
 
-		graph_renderer.edge_renderer.glyph = MultiLine(line_color=edge_normal_color, line_width=5)
-		graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color=edge_selection_color, line_width=5)
-		graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=edge_hover_color, line_width=5)
+		graph_renderer.edge_renderer.glyph = MultiLine(line_color=edge_normal_color, line_width=2)
+		graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color=edge_selection_color, line_width=2)
+		graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=edge_hover_color, line_width=2)
 
 		graph_renderer.selection_policy = NodesAndLinkedEdges()
 		graph_renderer.inspection_policy = NodesAndLinkedEdges()
 
-		pos = graph_renderer.layout_provider.graph_layout
-		x, y = zip(*pos.values())
-		source = ColumnDataSource({'x': x, 'y': y, 'field': self.CONFIG.ENCODED_DATASET.columns})
-		labels = LabelSet(x='x', y='y', text='field', source=source)
+		source = ColumnDataSource({'x': hv_graph.nodes['x'], 'y': hv_graph.nodes['y'], 'field': self.CONFIG.ENCODED_DATASET.columns})
+		labels = LabelSet(x='x', y='y', text='field', source=source, text_font_size='7pt', text_color='black', text_align='center')
 
 		graph_renderer.node_renderer.data_source.selected.on_change("indices", self.update_distribution_cds, self.update_fairness_cds)
 
@@ -90,7 +92,7 @@ class FairHIL:
 		print("done")
 		return plot
 
-	def load_distribution_graph(self):
+	def load_distribution_fig(self):
 		distribution_cds = ColumnDataSource(data={'top': [], 'bottom': [], 'left': [], 'right': []})
 
 		distribution_fig = figure(width=math.floor(self.plot_size/2), height=math.floor(self.plot_size*0.75), title="Feature distribution against target", title_location="left", tools="")
@@ -109,7 +111,7 @@ class FairHIL:
 		if new:
 			self.distribution_cds.data = self.distribution_data[int(new[0])]
 
-	def load_fairness_graph(self):
+	def load_fairness_fig(self):
 		fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
 
 		fairness_fig = figure(width=math.floor(self.plot_size/2), height=math.floor(self.plot_size*0.25), x_range=Range1d(0, 1), title="Fairness", title_location="left", tools="")
@@ -136,8 +138,12 @@ class FairHIL:
 		# print(f"SPD: {metric.mean_difference()}")
 		return column_idx*0.1
 
-
 	def update_fairness_cds(self, attr, old, new):
 		if new:
 			print("Update to fairness_cds")
 			self.fairness_cds.data = self.fairness_data[int(new[0])]
+
+	def load_dataset_fig(self):
+		cols = [TableColumn(field=x, title=x) for x in self.CONFIG.DATASET.columns]
+		data_table = DataTable(columns=cols, source=ColumnDataSource(self.CONFIG.DATASET))
+		return data_table
