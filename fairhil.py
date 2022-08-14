@@ -5,6 +5,7 @@ from bokeh.layouts import *
 from bokeh.models import *
 from bokeh.palettes import *
 from bokeh.plotting import *
+from bokeh.transform import *
 from configuration import *
 import hvplot.networkx as hvnx
 import holoviews as hv
@@ -20,12 +21,12 @@ class FairHIL:
 		self.ui = None
 
 		# Loading/instantiating UI components
-		self.overview = Spacer()
+		self.overview_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
 		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
 		self.fairness_cds, self.fairness_fig, self.fairness_data = self.load_fairness_fig()
 		self.relationships_fig = Spacer()
-		self.dataset_fig = self.load_dataset_fig()
+		self.dataset_cds, self.data_table_fig = self.load_dataset_fig()
 		self.combinations_fig = Spacer()
 		self.comparator_fig = Spacer()
 
@@ -35,11 +36,35 @@ class FairHIL:
 		curdoc().title = "FairHIL"
 		curdoc().clear()
 		self.ui = layout(children=[
-			[self.overview],
-			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.dataset_fig],
+			[self.overview_fig],
+			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.data_table_fig],
 			[self.relationships_fig, self.combinations_fig, self.comparator_fig]
-		], sizing_mode="fixed")
+		])
 		curdoc().add_root(self.ui)
+
+	def load_overview_fig(self):
+		# title_div = Div(text='<b>System Overview<b>', style={'font-size': '150%'})
+		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", 'font-size': '125%'})
+		instances_div = Div(text=f"<b>Total dataset instances: {len(self.CONFIG.DATASET)}<b>", style={"text-align": "center", 'font-size': '125%'})
+		cats_vals = self.CONFIG.DATASET[self.CONFIG.TARGET_FEAT].value_counts()
+		cats_vals_lst = []
+		for cat, val in cats_vals.items():
+			cats_vals_lst.append(f"{cat}: {val}")
+		cats_vals_div = Div(text=f"<b>{', '.join(cats_vals_lst)}<b>", style={"text-align": "center", 'font-size': '125%'})
+		pi_fig = self.get_pi_fig(cats_vals, 50, 50)
+		return layout(children=[[title_div, Spacer(), instances_div, Spacer(), cats_vals_div, Spacer(), pi_fig]], sizing_mode="stretch_both")
+
+	def get_pi_fig(self, series, height, width):
+		data = series.reset_index(name='value').rename(columns={'index': 'target'})
+		data['angle'] = data['value']/data['value'].sum() * 2*math.pi
+		data['color'] = ('#253494', '#41b6c4') if len(series) < 3 else YlGnBu[len(series)]
+		pi_fig = figure(height=height, width=width, toolbar_location=None, tools="hover", tooltips="@target: @value", x_range=Range1d(-1, 1))
+		pi_fig.wedge(x=0, y=1, radius=0.5, start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'), line_color="white", fill_color='color', source=data)
+		pi_fig.axis.axis_label = None
+		pi_fig.axis.visible = False
+		pi_fig.grid.grid_line_color = None
+		pi_fig.outline_line_color = None
+		return pi_fig
 
 	def load_causal_graph_fig(self):
 		if DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 1:
@@ -144,5 +169,14 @@ class FairHIL:
 
 	def load_dataset_fig(self):
 		cols = [TableColumn(field=x, title=x) for x in self.CONFIG.DATASET.columns]
-		data_table = DataTable(columns=cols, source=ColumnDataSource(self.CONFIG.DATASET))
-		return data_table
+		dataset_cds = ColumnDataSource(self.CONFIG.DATASET)
+		data_table = DataTable(columns=cols, source=dataset_cds, height=math.floor(0.9*self.plot_size))
+		unfair_button = Button(label="Mark data point as unfair", button_type="danger", height=math.floor(0.1*self.plot_size))
+
+		unfair_button.on_click(self.mark_unfair)
+		return dataset_cds, column(unfair_button, data_table)
+
+	def mark_unfair(self):
+
+		print(self.dataset_cds.selected.__getattribute__('indices'))
+
