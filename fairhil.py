@@ -53,10 +53,9 @@ class FairHIL:
 			alg = cdt.causality.graph.PC()
 
 		G = alg.create_graph_from_data(self.CONFIG.ENCODED_DATASET)
-
 		plot = Plot(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1), title="Causal Discovery Graph", title_location="left")
 		plot.add_tools(HoverTool(tooltips=None), TapTool())    # PanTool(), WheelZoomTool()
-		hv_graph = hv.Graph.from_networkx(G,  nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
+		hv_graph = hv.Graph.from_networkx(G, nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
 		hv_rendered = hv.render(hv_graph, 'bokeh')
 		graph_renderer = hv_rendered.select_one(GraphRenderer)
 
@@ -67,7 +66,7 @@ class FairHIL:
 		edge_hover_color = named.magenta
 		edge_selection_color = named.magenta
 
-		graph_renderer.node_renderer.data_source.data['degrees'] = [(val+1)*10 for (node, val) in nx.degree(G)]
+		graph_renderer.node_renderer.data_source.data['degrees'] = [(val+1)*10 for (node, val) in sorted(nx.degree(G), key=lambda pair: pair[0])]
 		graph_renderer.node_renderer.data_source.data['colors'] = [named.gold if feat in self.CONFIG.SENSITIVE_FEATS else node_normal_color for feat in self.CONFIG.DATASET_FEATS]
 
 		graph_renderer.node_renderer.glyph = Circle(size='degrees', fill_color='colors', fill_alpha=0.5)
