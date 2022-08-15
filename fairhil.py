@@ -10,6 +10,9 @@ from configuration import *
 import hvplot.networkx as hvnx
 import holoviews as hv
 
+import xgboost as xgb
+from sklearn.metrics import accuracy_score, confusion_matrix
+
 
 class FairHIL:
 
@@ -18,9 +21,10 @@ class FairHIL:
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"   # Path to Rscript.exe
 		self.plot_size = 400
 
-		self.ui = None
+		self.train_model()
 
 		# Loading/instantiating UI components
+		self.ui = None
 		self.overview_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
 		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
@@ -42,17 +46,27 @@ class FairHIL:
 		])
 		curdoc().add_root(self.ui)
 
+	def train_model(self):
+		print("Training XGBoost Classifier")
+		model = xgb.XGBClassifier(objective="binary:logistic")
+		y = self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT]
+		X = self.CONFIG.ENCODED_DATASET.drop(self.CONFIG.TARGET_FEAT, axis=1)
+		model.fit(X, y)
+		y_pred = model.predict(X)
+		print(accuracy_score(y, y_pred))
+
 	def load_overview_fig(self):
 		# title_div = Div(text='<b>System Overview<b>', style={'font-size': '150%'})
-		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", 'font-size': '125%'})
-		instances_div = Div(text=f"<b>Total dataset instances: {len(self.CONFIG.DATASET)}<b>", style={"text-align": "center", 'font-size': '125%'})
+		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", "font-size": "125%"})
+		instances_div = Div(text=f"Total dataset instances: {len(self.CONFIG.DATASET)}", style={"text-align": "center", "font-size": "125%"})
 		cats_vals = self.CONFIG.DATASET[self.CONFIG.TARGET_FEAT].value_counts()
 		cats_vals_lst = []
 		for cat, val in cats_vals.items():
 			cats_vals_lst.append(f"{cat}: {val}")
-		cats_vals_div = Div(text=f"<b>{', '.join(cats_vals_lst)}<b>", style={"text-align": "center", 'font-size': '125%'})
+		cats_vals_div = Div(text=f"{', '.join(cats_vals_lst)}", style={"text-align": "center", "font-size": "125%"})
+		percentage_div = Div(text=f"{np.round((cats_vals.max()/cats_vals.sum())*100, 1)}% major class", style={"text-align": "center", "font-size": "125%", "color": "blue"})
 		pi_fig = self.get_pi_fig(cats_vals, 50, 50)
-		return layout(children=[[title_div, Spacer(), instances_div, Spacer(), cats_vals_div, Spacer(), pi_fig]], sizing_mode="stretch_both")
+		return layout(children=[[title_div, instances_div, cats_vals_div, percentage_div, pi_fig]], sizing_mode="stretch_both")
 
 	def get_pi_fig(self, series, height, width):
 		data = series.reset_index(name='value').rename(columns={'index': 'target'})
