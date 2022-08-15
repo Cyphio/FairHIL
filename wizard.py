@@ -61,7 +61,6 @@ class Wizard:
 		self.CONFIG.ENCODED_DATASET[cat_columns] = self.CONFIG.ENCODED_DATASET[cat_columns].apply(
 			lambda x: pd.factorize(x)[0])
 
-
 	def set_mode(self, attr, old, new):
 		if self.mode_button.active == 0:
 			self.CONFIG.MODE = ModeOptions.BASIC
@@ -116,7 +115,6 @@ class Wizard:
 			return ui
 
 	def launch_fairhil(self):
-		print("Launching FairHIL")
 		self.CONFIG.SENSITIVE_FEATS = self.sensi_feats_choice.value
 		self.CONFIG.TARGET_FEAT = self.target_feature.value
 		self.CONFIG.DEEP_DIVE_METRICS = self.deep_dive_metrics.value

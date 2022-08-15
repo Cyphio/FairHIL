@@ -9,9 +9,12 @@ from bokeh.transform import *
 from configuration import *
 import hvplot.networkx as hvnx
 import holoviews as hv
-
 import xgboost as xgb
 from sklearn.metrics import accuracy_score, confusion_matrix
+from aif360.sklearn.metrics import *
+from aif360.datasets import *
+from aif360.metrics import *
+from sklearn.svm import SVC
 
 
 class FairHIL:
@@ -21,9 +24,11 @@ class FairHIL:
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"   # Path to Rscript.exe
 		self.plot_size = 400
 
+		# Training XGBoost classifier for fairness metrics
 		self.train_model()
 
 		# Loading/instantiating UI components
+		print("Loading FairHIL interface...")
 		self.ui = None
 		self.overview_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
@@ -35,6 +40,7 @@ class FairHIL:
 		self.comparator_fig = Spacer()
 
 		self.launch_ui()
+		print("Done")
 
 	def launch_ui(self):
 		curdoc().title = "FairHIL"
@@ -47,16 +53,15 @@ class FairHIL:
 		curdoc().add_root(self.ui)
 
 	def train_model(self):
-		print("Training XGBoost Classifier")
+		print("Training XGBoost Classifier...")
 		model = xgb.XGBClassifier(objective="binary:logistic")
 		y = self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT]
 		X = self.CONFIG.ENCODED_DATASET.drop(self.CONFIG.TARGET_FEAT, axis=1)
 		model.fit(X, y)
-		y_pred = model.predict(X)
-		print(accuracy_score(y, y_pred))
+		self.CONFIG.Y_PRED = model.predict(X)
+		print("Done")
 
 	def load_overview_fig(self):
-		# title_div = Div(text='<b>System Overview<b>', style={'font-size': '150%'})
 		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", "font-size": "125%"})
 		instances_div = Div(text=f"Total dataset instances: {len(self.CONFIG.DATASET)}", style={"text-align": "center", "font-size": "125%"})
 		cats_vals = self.CONFIG.DATASET[self.CONFIG.TARGET_FEAT].value_counts()
@@ -82,13 +87,10 @@ class FairHIL:
 
 	def load_causal_graph_fig(self):
 		if DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 1:
-			print("GES")
 			alg = cdt.causality.graph.GES()
 		elif DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 2:
-			print("LiNGAM")
 			alg = cdt.causality.graph.LiNGAM()
 		else:
-			print("PC")
 			alg = cdt.causality.graph.PC()
 
 		G = alg.create_graph_from_data(self.CONFIG.ENCODED_DATASET)
@@ -127,7 +129,6 @@ class FairHIL:
 		plot.renderers.append(graph_renderer)
 		plot.renderers.append(labels)
 
-		print("done")
 		return plot
 
 	def load_distribution_fig(self):
@@ -135,12 +136,13 @@ class FairHIL:
 
 		distribution_fig = figure(width=math.floor(self.plot_size/2), height=math.floor(self.plot_size*0.75), title="Feature distribution against target", title_location="left", tools="")
 		distribution_fig.quad(top='top', bottom='bottom', left='left', right='right', source=distribution_cds, line_color="white")
-		distribution_fig.xaxis.major_label_orientation = math.pi / 4
-		distribution_fig.yaxis.major_label_orientation = "vertical"
+		# distribution_fig.xaxis.major_label_orientation = math.pi / 4
+		# distribution_fig.yaxis.major_label_orientation = "vertical"
+		distribution_fig.axis.visible = False
 
 		distribution_data = []
 		for column_idx in range(len(self.CONFIG.ENCODED_DATASET.columns)):
-			hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx], weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT])
+			hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx], weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT], bins=2 if self.CONFIG.ENCODED_DATASET.iloc[:, column_idx].nunique() == 2 else 10)
 			distribution_data.append({'top': hist, 'bottom': [0]*len(hist), 'left': edges[:-1], 'right': edges[1:]})
 
 		return distribution_cds, distribution_fig, distribution_data
@@ -174,7 +176,64 @@ class FairHIL:
 		# standard_ds = StandardDataset(self.CONFIG.ENCODED_DATASET, label_name=self.CONFIG.TARGET_FEAT, favorable_classes=[1], protected_attribute_names=self.CONFIG.SENSITIVE_FEATS, privileged_classes=[[1]])
 		# metric = BinaryLabelDatasetMetric(df=standard_ds, label_names=self.CONFIG.ENCODED_DATASET.columns, protected_attribute_names=self.CONFIG.SENSITIVE_FEATS)
 		# print(f"SPD: {metric.mean_difference()}")
-		return column_idx*0.1
+
+		# return column_idx*0.1
+
+		# privileged_groups = {attr: 1 for attr in self.CONFIG.SENSITIVE_FEATS}
+		# unprivileged_groups = {attr: 0 for attr in self.CONFIG.SENSITIVE_FEATS}
+		# print(privileged_groups)
+		# print(unprivileged_groups)
+		# ds = BinaryLabelDataset(favorable_label=1.0, unfavorable_label=0.0, df=self.CONFIG.ENCODED_DATASET, label_names=[self.CONFIG.TARGET_FEAT], protected_attribute_names=self.CONFIG.SENSITIVE_FEATS, privileged_protected_attributes=[1.0])
+		# ds_metric = BinaryLabelDatasetMetric(ds, unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+		# print(ds_metric.mean_difference())
+
+
+
+
+
+
+		# print(self.CONFIG.ENCODED_DATASET[self.CONFIG.SENSITIVE_FEATS].values)
+		# dataset = StandardDataset(self.CONFIG.ENCODED_DATASET, label_name=self.CONFIG.TARGET_FEAT, favorable_classes=[1], protected_attribute_names=self.CONFIG.SENSITIVE_FEATS, privileged_classes=self.CONFIG.ENCODED_DATASET[self.CONFIG.SENSITIVE_FEATS].values)
+		# dataset_pred = dataset.copy()
+		# dataset_pred.labels = self.CONFIG.ENCODED_DATASET.iloc[:, column_idx]
+		#
+		# attr = dataset_pred.protected_attribute_names[0]
+		#
+		# idx = dataset_pred.protected_attribute_names.index(attr)
+		# privileged_groups = [{attr: dataset_pred.privileged_protected_attributes[idx][0]}]
+		# unprivileged_groups = [{attr: dataset_pred.unprivileged_protected_attributes[idx][0]}]
+		#
+		# classified_metric = ClassificationMetric(dataset, dataset_pred, unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+		#
+		# metric_pred = BinaryLabelDatasetMetric(dataset_pred, unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+		#
+		# result = {'SPD': 1-metric_pred.statistical_parity_difference(), 'DI': 1-metric_pred.disparate_impact(), 'EOD': 1-classified_metric.equal_opportunity_difference()}
+		# print(result)
+		# return result['SPD']
+
+		clf = SVC(random_state=0).fit(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx], self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT])
+		y_pred = clf.predict(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx])
+
+		dataset = StandardDataset(self.CONFIG.ENCODED_DATASET, label_name=self.CONFIG.TARGET_FEAT, favorable_classes=[1], protected_attribute_names=self.CONFIG.ENCODED_DATASET.iloc[:, column_idx], privileged_classes=self.CONFIG.ENCODED_DATASET.iloc[:, column_idx].values)
+
+		dataset_pred = self.CONFIG.copy()
+		dataset_pred.labels = y_pred
+
+		attr = dataset_pred.protected_attribute_names[0]
+
+		idx = dataset_pred.protected_attribute_names.index(attr)
+		privileged_groups = [{attr: dataset_pred.privileged_protected_attributes[idx][0]}]
+		unprivileged_groups = [{attr: dataset_pred.unprivileged_protected_attributes[idx][0]}]
+
+		classified_metric = ClassificationMetric(dataset, dataset_pred, unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+
+		metric_pred = BinaryLabelDatasetMetric(dataset_pred, unprivileged_groups=unprivileged_groups, privileged_groups=privileged_groups)
+
+		result = {'SPD': 1 - metric_pred.statistical_parity_difference(), 'DI': 1 - metric_pred.disparate_impact(),  'EOD': 1 - classified_metric.equal_opportunity_difference()}
+
+		print(result)
+
+		return result['SPD']
 
 	def update_fairness_cds(self, attr, old, new):
 		if new:

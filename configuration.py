@@ -16,6 +16,7 @@ class Configuration:
 		self.BINNING_PROCESS = BinningProcesses
 		self.DISCOVERY_ALG = DiscoveryAlgorithms
 		self.CARD_GEN_PROCESS = CardGenerationProcesses
+		self.Y_PRED = []
 
 
 def get_options(enum):
