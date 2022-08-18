@@ -7,6 +7,7 @@ class Configuration:
 	def __init__(self):
 		self.DATASET = pd.DataFrame()
 		self.ENCODED_DATASET = pd.DataFrame()
+		self.ENCODING_MAPPING = {}
 		self.DATASET_FEATS = []
 		self.BINARY_FEATS = []
 		self.MODE = ModeOptions
@@ -17,7 +18,7 @@ class Configuration:
 		self.BINNING_PROCESS = BinningProcesses
 		self.DISCOVERY_ALG = DiscoveryAlgorithms
 		self.CARD_GEN_PROCESS = CardGenerationProcesses
-		self.PRIV_CLASS_DIVIDE = {"Age": lambda x: x >= 25, "Sex": [1]}
+		self.PRIVILEGED_CLASSES = {}
 		self.TARGET_FAVOURABLE_CLASS = 1
 
 

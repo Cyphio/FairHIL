@@ -7,20 +7,11 @@ from bokeh.palettes import *
 from bokeh.plotting import *
 from bokeh.transform import *
 from configuration import *
-import hvplot.networkx as hvnx
 import holoviews as hv
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.tree import DecisionTreeClassifier
-from aif360.sklearn.metrics import *
 from aif360.datasets import *
 from aif360.metrics import *
-from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
-from statsmodels.robust.scale import mad
-import dalex as dx
-from optbinning import OptimalBinning
-
+hv.extension("bokeh")
 
 class FairHIL:
 
@@ -29,9 +20,6 @@ class FairHIL:
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"  # Path to Rscript.exe
 		self.plot_size = 400
 
-		self.callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
-		self.callback_holder.js_on_change('text', CustomJS(args={}, code='alert(cb_obj.text);'))
-
 		# Loading/instantiating UI components
 		print("Loading FairHIL interface...")
 		self.ui = None
@@ -39,7 +27,6 @@ class FairHIL:
 		self.causal_graph_fig = self.load_causal_graph_fig()
 		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
 		self.fairness_data = self.get_fairness_data()
-		print(self.fairness_data)
 		self.fairness_cds, self.fairness_fig = self.load_fairness_fig()
 		self.relationships_fig = Spacer()
 		self.dataset_cds, self.data_table_fig = self.load_dataset_fig()
@@ -53,10 +40,8 @@ class FairHIL:
 		curdoc().title = "FairHIL"
 		curdoc().clear()
 		self.ui = layout(children=[
-			[self.overview_fig],
-			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.data_table_fig],
-			[self.relationships_fig, self.combinations_fig, self.comparator_fig],
-			[self.callback_holder]
+			[self.overview_fig, self.data_table_fig],
+			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.relationships_fig],
 		])
 		curdoc().add_root(self.ui)
 
@@ -188,7 +173,7 @@ class FairHIL:
 				dataset_orig = StandardDataset(self.CONFIG.ENCODED_DATASET, label_name=self.CONFIG.TARGET_FEAT,
 											   favorable_classes=[self.CONFIG.TARGET_FAVOURABLE_CLASS],
 											   protected_attribute_names=self.CONFIG.SENSITIVE_FEATS,
-											   privileged_classes=[self.CONFIG.PRIV_CLASS_DIVIDE[feat] for feat in
+											   privileged_classes=[self.CONFIG.PRIVILEGED_CLASSES[feat] for feat in
 																   self.CONFIG.SENSITIVE_FEATS])
 				dataset_pred = dataset_orig.copy()
 				y_pred = self.get_y_pred(self.CONFIG.ENCODED_DATASET[column])
@@ -213,7 +198,6 @@ class FairHIL:
 										 "Average Odds Difference": 0,
 										 "Disparate Impact": 0,
 										 "Theill Index": 0}
-				self.callback_holder.text = "No protected features selected: fairness metric(s) not calculated"
 		return fairness_data
 
 	def get_y_pred(self, X):
@@ -237,4 +221,4 @@ class FairHIL:
 		return dataset_cds, column(unfair_button, data_table)
 
 	def mark_unfair(self):
-		print(self.dataset_cds.selected.__getattribute__('indices'))
+		print(f"ROW: {self.dataset_cds.selected.__getattribute__('indices')} MARKED UNFAIR")
