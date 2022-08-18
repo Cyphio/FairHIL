@@ -8,6 +8,7 @@ class Configuration:
 		self.DATASET = pd.DataFrame()
 		self.ENCODED_DATASET = pd.DataFrame()
 		self.DATASET_FEATS = []
+		self.BINARY_FEATS = []
 		self.MODE = ModeOptions
 		self.SENSITIVE_FEATS = []
 		self.TARGET_FEAT = None
@@ -16,7 +17,8 @@ class Configuration:
 		self.BINNING_PROCESS = BinningProcesses
 		self.DISCOVERY_ALG = DiscoveryAlgorithms
 		self.CARD_GEN_PROCESS = CardGenerationProcesses
-		self.Y_PRED = []
+		self.PRIV_CLASS_DIVIDE = {"Age": lambda x: x >= 25, "Sex": [1]}
+		self.TARGET_FAVOURABLE_CLASS = 1
 
 
 def get_options(enum):

@@ -81,14 +81,15 @@ class Wizard:
 
 	def launch_stage_2(self):
 		if len(self.CONFIG.DATASET) == 0:
-			print("Alert")
 			self.callback_holder.text = "Please upload a Dataset"
 		else:
 			curdoc().clear()
 			curdoc().title = "Wizard Stage 2"
 			dataset_feats = list(self.CONFIG.DATASET.columns.values)
 			self.CONFIG.DATASET_FEATS = dataset_feats
-			self.target_feature.update(options=dataset_feats, value=dataset_feats[-1])
+			binary_feats = [feat for feat in dataset_feats if self.CONFIG.DATASET[feat].nunique() == 2]
+			self.CONFIG.BINARY_FEATS = binary_feats
+			self.target_feature.update(options=binary_feats, value=dataset_feats[-1])
 			self.sensi_feats_choice.update(options=dataset_feats)
 			if self.CONFIG.MODE.value == 1:
 				# Advanced config UI

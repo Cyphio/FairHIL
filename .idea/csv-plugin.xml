@@ -17,6 +17,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\configuration.py">
+          <value>
+            <Attribute>
+              <option name="separator" value="&#9;" />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\enums.py">
           <value>
             <Attribute>
