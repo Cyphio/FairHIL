@@ -1,3 +1,5 @@
+import itertools
+
 import cdt
 import networkx as nx
 from bokeh.colors import named
@@ -22,13 +24,12 @@ class FairHIL:
 
 		# Loading/instantiating UI components
 		print("Loading FairHIL interface...")
-		self.ui = None
 		self.overview_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
 		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
 		self.fairness_data = self.get_fairness_data()
-		self.fairness_cds, self.fairness_fig = self.load_fairness_fig()
-		self.relationships_fig = Spacer()
+		self.primary_fairness_cds, self.primary_fairness_fig = self.load_primary_fairness_fig()
+		self.fairness_metrics_cds, self.relationships_fig = self.load_relationships_fig()
 		self.dataset_cds, self.data_table_fig = self.load_dataset_fig()
 		self.combinations_fig = Spacer()
 		self.comparator_fig = Spacer()
@@ -39,11 +40,16 @@ class FairHIL:
 	def launch_ui(self):
 		curdoc().title = "FairHIL"
 		curdoc().clear()
-		self.ui = layout(children=[
-			[self.overview_fig, self.data_table_fig],
-			[self.causal_graph_fig, column(self.fairness_fig, self.distribution_fig), self.relationships_fig],
+		# ui = layout(children=[
+		# 	[self.overview_fig, self.data_table_fig],
+		# 	[self.causal_graph_fig, column(self.primary_fairness_fig, self.distribution_fig), self.relationships_fig],
+		# ])
+		ui = layout(children=[
+			[self.overview_fig],
+			[self.causal_graph_fig, column(self.primary_fairness_fig, self.distribution_fig), self.data_table_fig],
+			[self.relationships_fig]
 		])
-		curdoc().add_root(self.ui)
+		curdoc().add_root(ui)
 
 	def load_overview_fig(self):
 		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", "font-size": "125%"})
@@ -75,9 +81,9 @@ class FairHIL:
 		return pi_fig
 
 	def load_causal_graph_fig(self):
-		if DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 1:
+		if self.CONFIG.DISCOVERY_ALG.value == 1:
 			alg = cdt.causality.graph.GES()
-		elif DiscoveryAlgorithms(self.CONFIG.DISCOVERY_ALG).value == 2:
+		elif self.CONFIG.DISCOVERY_ALG.value == 2:
 			alg = cdt.causality.graph.LiNGAM()
 		else:
 			alg = cdt.causality.graph.PC()
@@ -121,7 +127,8 @@ class FairHIL:
 						  text_align='center')
 
 		graph_renderer.node_renderer.data_source.selected.on_change("indices", self.update_distribution_cds,
-																	self.update_fairness_cds)
+																	self.update_fairness_cds,
+																	self.update_fairness_metrics_cds)
 
 		plot.renderers.append(graph_renderer)
 		plot.renderers.append(labels)
@@ -150,21 +157,21 @@ class FairHIL:
 		if new:
 			self.distribution_cds.data = self.distribution_data[int(new[0])]
 
-	def load_fairness_fig(self):
-		fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
+	def load_primary_fairness_fig(self):
+		primary_fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
 
-		fairness_fig = figure(width=math.floor(self.plot_size / 2), height=math.floor(self.plot_size * 0.25),
-							  x_range=Range1d(min([d[self.CONFIG.PRIMARY_METRIC] for d in self.fairness_data.values()]),
-											  max([d[self.CONFIG.PRIMARY_METRIC] for d in self.fairness_data.values()])),
-							  title="Fairness", title_location="left", tools="")
-		fairness_fig.hbar(y='y', right='right', left=0, height=0.5, source=fairness_cds)
-		fairness_fig.yaxis.major_tick_line_color = None
-		fairness_fig.yaxis.minor_tick_line_color = None
-		fairness_fig.yaxis.visible = False
-		fairness_fig.xaxis.major_label_orientation = math.pi / 4
-		fairness_fig.yaxis.major_label_orientation = "vertical"
+		primary_fairness_fig = figure(width=math.floor(self.plot_size / 2), height=math.floor(self.plot_size * 0.25),
+							  x_range=Range1d(min([d[self.CONFIG.PRIMARY_METRIC.string] for d in self.fairness_data.values()]),
+											  max([d[self.CONFIG.PRIMARY_METRIC.string] for d in self.fairness_data.values()])),
+							  title=self.CONFIG.PRIMARY_METRIC.acronym, title_location="left", tools="")
+		primary_fairness_fig.hbar(y='y', right='right', left=0, height=0.5, source=primary_fairness_cds)
+		primary_fairness_fig.yaxis.major_tick_line_color = None
+		primary_fairness_fig.yaxis.minor_tick_line_color = None
+		primary_fairness_fig.yaxis.visible = False
+		primary_fairness_fig.xaxis.major_label_orientation = math.pi / 4
+		primary_fairness_fig.yaxis.major_label_orientation = "vertical"
 
-		return fairness_cds, fairness_fig
+		return primary_fairness_cds, primary_fairness_fig
 
 	def get_fairness_data(self):
 		fairness_data = {}
@@ -191,7 +198,9 @@ class FairHIL:
 						  "Average Odds Difference": classified_metric.average_abs_odds_difference(),
 						  "Disparate Impact": classified_metric.disparate_impact(),
 						  "Theill Index": classified_metric.theil_index()}
-				fairness_data[column] = result
+				# Removing NaN values from metrics (a particular issue with Disparate Impact
+				cleaned_result = {k: 0 if np.isnan(v) else v for k, v in result.items()}
+				fairness_data[column] = cleaned_result
 			else:
 				fairness_data[column] = {"Statistical Parity Difference": 0,
 										 "Equality of Opportunity Difference": 0,
@@ -208,7 +217,39 @@ class FairHIL:
 
 	def update_fairness_cds(self, attr, old, new):
 		if new:
-			self.fairness_cds.data = {'y': [1], 'right': [self.fairness_data[self.CONFIG.DATASET_FEATS[int(new[0])]][self.CONFIG.PRIMARY_METRIC]]}
+			self.primary_fairness_cds.data = {'y': [1], 'right': [self.fairness_data[self.CONFIG.DATASET_FEATS[int(new[0])]][self.CONFIG.PRIMARY_METRIC.string]]}
+
+	def load_relationships_fig(self):
+		fairness_metrics_cds = ColumnDataSource(data={'x': [], 'top': []})
+
+		# x_range=list(list(self.fairness_data.values())[0].keys())
+		fairness_metrics_fig = figure(width=self.plot_size, height=math.floor(self.plot_size / 2),
+									  x_range=[metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS],
+									  # y_range=Range1d(
+										#   min([min(list(d.values())) for d in [self.fairness_data[metric] for metric in self.CONFIG.DEEP_DIVE_METRICS]]),
+										#   max([max(list(d.values())) for d in [self.fairness_data[metric] for metric in self.CONFIG.DEEP_DIVE_METRICS]])),
+									  y_range=Range1d(
+										  min([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS]),
+										  max([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS])
+									  ),
+									  title="Fairness metrics deep-dive", title_location="above", tools="")
+		fairness_metrics_fig.vbar(x='x', top='top', bottom=0, width=0.5, source=fairness_metrics_cds)
+
+		relationships_fig = layout(children=[
+			[fairness_metrics_fig]
+		])
+
+		return fairness_metrics_cds, relationships_fig
+
+	def update_fairness_metrics_cds(self, attr, old, new):
+		if new:
+			data = self.fairness_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
+			self.fairness_metrics_cds.data = {'x': [metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS], 'top': [data[metric.string] for metric in self.CONFIG.DEEP_DIVE_METRICS]}
+
+
+
+
+
 
 	def load_dataset_fig(self):
 		cols = [TableColumn(field=x, title=x) for x in self.CONFIG.DATASET.columns]

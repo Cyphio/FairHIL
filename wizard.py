@@ -29,7 +29,7 @@ class Wizard:
 		self.target_feature_div = Div(text="Select a target feature:")
 		self.sensi_feats_choice_div = Div(text="Select the sensitive (protected) features:")
 		self.priv_classes_div = Div(text="Define the privileged group boundary(s):")
-		self.priv_classes_format = Div(text="<b>Format:</b> <i>feature</i> (< / <= / > / >= / ==) <i>value<i/>")
+		self.priv_classes_format = Div(text="<b>Format:</b> <i>feature</i> ( < / <= / > / >= / == ) <i>value<i/>")
 		self.priv_classes_eg = Div(text="<b>For example:</b> Age >= 25, Sex == male")
 		self.deep_dive_metrics_div = Div(text="Select a suite of deep-dive fairness metrics:")
 		self.primary_metric_div = Div(text="Select a primary fairness metric:")
@@ -43,8 +43,8 @@ class Wizard:
 		# self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=list(
 		# 	np.random.choice(get_options(FairnessMetrics), size=2,
 		# 	replace=False)))  # Randomly generating 2 deep-dive metrics
-		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics))
 		self.primary_metric = Select(options=get_options(FairnessMetrics), value=FairnessMetrics.SPD.string)
+		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=get_options(FairnessMetrics))
 		self.binning_process = Select(options=get_options(BinningProcesses), value=BinningProcesses.SQUAREROOT.string)
 		self.discovery_algorithm = Select(options=get_options(DiscoveryAlgorithms),
 										  value=DiscoveryAlgorithms.PC.string)
@@ -129,8 +129,8 @@ class Wizard:
 					[self.sensi_feats_choice_div, self.sensi_feats_choice],
 					[column(self.priv_classes_div, self.priv_classes_format, self.priv_classes_eg), self.priv_classes_input],
 					[self.target_feature_div, self.target_feature],
-					[self.deep_dive_metrics_div, self.deep_dive_metrics],
 					[self.primary_metric_div, self.primary_metric],
+					[self.deep_dive_metrics_div, self.deep_dive_metrics],
 					[self.binning_process_div, self.binning_process],
 					[self.discovery_algorithm_div, self.discovery_algorithm],
 					[self.card_generation_div, self.card_generation],
@@ -142,8 +142,8 @@ class Wizard:
 					[self.sensi_feats_choice_div, self.sensi_feats_choice],
 					[column(self.priv_classes_div, self.priv_classes_format, self.priv_classes_eg), self.priv_classes_input],
 					[self.target_feature_div, self.target_feature],
-					[self.deep_dive_metrics_div, self.deep_dive_metrics],
 					[self.primary_metric_div, self.primary_metric],
+					[self.deep_dive_metrics_div, self.deep_dive_metrics],
 				])
 				ui = column(self.data_table, grid, self.submit_stage_2, self.callback_holder)
 			curdoc().add_root(ui)
@@ -160,9 +160,9 @@ class Wizard:
 		self.CONFIG.PRIVILEGED_CLASSES = self.privileged_classes_to_lambda(privileged_classes)
 		self.CONFIG.SENSITIVE_FEATS = self.sensi_feats_choice.value
 		self.CONFIG.TARGET_FEAT = self.target_feature.value
-		self.CONFIG.DEEP_DIVE_METRICS = self.deep_dive_metrics.value
-		self.CONFIG.PRIMARY_METRIC = self.primary_metric.value
-		self.CONFIG.BINNING_PROCESS = self.binning_process.value
-		self.CONFIG.DISCOVERY_ALG = self.discovery_algorithm.value
-		self.CONFIG.CARD_GEN_PROCESS = self.card_generation.value
+		self.CONFIG.PRIMARY_METRIC = FairnessMetrics(self.primary_metric.value)
+		self.CONFIG.DEEP_DIVE_METRICS = [FairnessMetrics(value) for value in self.deep_dive_metrics.value]
+		self.CONFIG.BINNING_PROCESS = BinningProcesses(self.binning_process.value)
+		self.CONFIG.DISCOVERY_ALG = DiscoveryAlgorithms(self.discovery_algorithm.value)
+		self.CONFIG.CARD_GEN_PROCESS = CardGenerationProcesses(self.card_generation.value)
 		FairHIL(self.CONFIG)

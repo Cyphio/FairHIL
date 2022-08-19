@@ -46,12 +46,12 @@ class ModeOptions(aenum.Enum):
 
 
 class FairnessMetrics(aenum.Enum):
-	_init_ = "value string"
-	SPD = 0, "Statistical Parity Difference"
-	EoOD = 1, "Equality of Opportunity Difference"
-	AOD = 2, "Average Odds Difference"
-	DI = 3, "Disparate Impact"
-	TI = 4, "Theill Index"
+	_init_ = "value string acronym"
+	SPD = 0, "Statistical Parity Difference", "SPD"
+	EoOD = 1, "Equality of Opportunity Difference", "EoOD"
+	AOD = 2, "Average Odds Difference", "AOD"
+	DI = 3, "Disparate Impact", "DI"
+	TI = 4, "Theill Index", "TI"
 
 	def __str__(self):
 		return self.string
@@ -64,10 +64,10 @@ class FairnessMetrics(aenum.Enum):
 
 
 class DiscoveryAlgorithms(aenum.Enum):
-	_init_ = "value string"
-	PC = 0, "PC: Peter Spirtes & Clark Glymour"
-	GES = 1, "GES: Greedy Equivalence Search"
-	LINGAM = 2, "LiNGAM: Linear Non-Gaussian Acyclic Model"
+	_init_ = "value string acronym"
+	PC = 0, "Peter Spirtes & Clark Glymour", "PC"
+	GES = 1, "Greedy Equivalence Search", "GES"
+	LINGAM = 2, "Linear Non-Gaussian Acyclic Model", "LiNGAM"
 
 	def __str__(self):
 		return self.string
