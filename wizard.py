@@ -40,9 +40,6 @@ class Wizard:
 		self.target_feature = Select()
 		self.sensi_feats_choice = MultiChoice()
 		self.priv_classes_input = TextAreaInput(height=85)
-		# self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=list(
-		# 	np.random.choice(get_options(FairnessMetrics), size=2,
-		# 	replace=False)))  # Randomly generating 2 deep-dive metrics
 		self.primary_metric = Select(options=get_options(FairnessMetrics), value=FairnessMetrics.SPD.string)
 		self.deep_dive_metrics = MultiChoice(options=get_options(FairnessMetrics), value=get_options(FairnessMetrics))
 		self.binning_process = Select(options=get_options(BinningProcesses), value=BinningProcesses.SQUAREROOT.string)

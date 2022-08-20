@@ -26,7 +26,8 @@ class FairHIL:
 		print("Loading FairHIL interface...")
 		self.overview_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
-		self.distribution_cds, self.distribution_fig, self.distribution_data = self.load_distribution_fig()
+		self.distribution_data = self.get_distribution_data()
+		self.distribution_cds, self.distribution_fig  = self.load_distribution_fig()
 		self.fairness_data = self.get_fairness_data()
 		self.primary_fairness_cds, self.primary_fairness_fig = self.load_primary_fairness_fig()
 		self.fairness_metrics_cds, self.relationships_fig = self.load_relationships_fig()
@@ -103,24 +104,18 @@ class FairHIL:
 		edge_hover_color = named.magenta
 		edge_selection_color = named.magenta
 
-		graph_renderer.node_renderer.data_source.data['degrees'] = [(val + 1) * 10 for (node, val) in
-																	sorted(nx.degree(G), key=lambda pair: pair[0])]
-		graph_renderer.node_renderer.data_source.data['colors'] = [
-			named.gold if feat in self.CONFIG.SENSITIVE_FEATS else node_normal_color for feat in
-			self.CONFIG.DATASET_FEATS]
+		graph_renderer.node_renderer.data_source.data['size'] = [(val + 1) * 10 for (node, val) in sorted(nx.degree(G), key=lambda pair: pair[0])]
+		graph_renderer.node_renderer.data_source.data['fill_color'] = [named.gold if feat in self.CONFIG.SENSITIVE_FEATS else named.green if feat == self.CONFIG.TARGET_FEAT else node_normal_color for feat in self.CONFIG.DATASET_FEATS]
 
-		graph_renderer.node_renderer.glyph = Circle(size='degrees', fill_color='colors', fill_alpha=0.5)
-		graph_renderer.node_renderer.selection_glyph = Circle(size='degrees', fill_color=node_selection_color,
-															  fill_alpha=0.5)
-		graph_renderer.node_renderer.hover_glyph = Circle(size='degrees', fill_color=node_hover_color, fill_alpha=0.5)
+		graph_renderer.node_renderer.glyph = Circle(size='size', fill_color='fill_color', fill_alpha=0.5)
+		graph_renderer.node_renderer.selection_glyph = Circle(size='size', fill_color=node_selection_color, fill_alpha=0.5)
+		graph_renderer.node_renderer.hover_glyph = Circle(size='size', fill_color=node_hover_color, fill_alpha=0.5)
 
 		graph_renderer.edge_renderer.glyph = MultiLine(line_color=edge_normal_color, line_width=2)
 		graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color=edge_selection_color, line_width=2)
 		graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=edge_hover_color, line_width=2)
 
 		graph_renderer.selection_policy = NodesAndLinkedEdges()
-		graph_renderer.inspection_policy = NodesAndLinkedEdges()
-
 		source = ColumnDataSource(
 			{'x': hv_graph.nodes['x'], 'y': hv_graph.nodes['y'], 'field': self.CONFIG.ENCODED_DATASET.columns})
 		labels = LabelSet(x='x', y='y', text='field', source=source, text_font_size='7pt', text_color='black',
@@ -144,18 +139,35 @@ class FairHIL:
 							  line_color="white")
 		distribution_fig.axis.visible = False
 
-		distribution_data = []
-		for column_idx in range(len(self.CONFIG.ENCODED_DATASET.columns)):
-			hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx],
-									   weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT],
-									   bins=2 if self.CONFIG.ENCODED_DATASET.iloc[:, column_idx].nunique() == 2 else 10)
-			distribution_data.append({'top': hist, 'bottom': [0] * len(hist), 'left': edges[:-1], 'right': edges[1:]})
+		# for column_idx in range(len(self.CONFIG.ENCODED_DATASET.columns)):
+		# 	hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx],
+		# 							   weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT],
+		# 							   bins=2 if self.CONFIG.ENCODED_DATASET.iloc[:, column_idx].nunique() == 2 else 10)
+		# 	distribution_data.append({'top': hist, 'bottom': [0] * len(hist), 'left': edges[:-1], 'right': edges[1:]})
 
-		return distribution_cds, distribution_fig, distribution_data
+		return distribution_cds, distribution_fig
+
+	def get_distribution_data(self):
+		distribution_data = {}
+		for feat in self.CONFIG.DATASET_FEATS:
+			# self.CONFIG.ENCODED_DATASET['bin'] = pd.cut(self.CONFIG.ENCODED_DATASET[feat], bins=2 if feat in self.CONFIG.BINARY_FEATS else 8).astype(str)
+			# df = self.CONFIG.ENCODED_DATASET.groupby('bin').bin.count().rename_axis('count').reset_index()
+			# df.columns = ['bin', 'count']
+			# distribution_data[feat] = df
+			distribution, counts = pd.cut(self.CONFIG.ENCODED_DATASET[feat], bins=2 if feat in self.CONFIG.BINARY_FEATS else 8, retbins=True)
+			print(f"DISTRIBUTION: {distribution}\nCOUNTS: {counts}")
+			distribution_data[feat] = [distribution, counts]
+		return distribution_data
 
 	def update_distribution_cds(self, attr, old, new):
 		if new:
-			self.distribution_cds.data = self.distribution_data[int(new[0])]
+			# df = self.distribution_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
+			# hist, edges = df['count'].values, df['bin'].values
+			# print(f"X: {edges[:-1]}, Y: {edges[1:]}")
+
+			data = self.distribution_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
+			self.distribution_cds.data = {'top': data[0], 'bottom': [0] * len(data[0]), 'left': data[1][:-1], 'right': data[1][1:]}
+			# self.distribution_cds.data = self.distribution_data[int(new[0])]
 
 	def load_primary_fairness_fig(self):
 		primary_fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
@@ -245,11 +257,6 @@ class FairHIL:
 		if new:
 			data = self.fairness_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
 			self.fairness_metrics_cds.data = {'x': [metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS], 'top': [data[metric.string] for metric in self.CONFIG.DEEP_DIVE_METRICS]}
-
-
-
-
-
 
 	def load_dataset_fig(self):
 		cols = [TableColumn(field=x, title=x) for x in self.CONFIG.DATASET.columns]
