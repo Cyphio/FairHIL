@@ -22,16 +22,20 @@ class FairHIL:
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"  # Path to Rscript.exe
 		self.plot_size = 400
 
+		self.alert_callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
+		self.alert_callback_holder.js_on_change('text', CustomJS(args={}, code='alert(cb_obj.text);'))
+
 		# Loading/instantiating UI components
 		print("Loading FairHIL interface...")
-		self.overview_fig = self.load_overview_fig()
+		# self.overview_fig = self.load_overview_fig()
+		self.title_div, self.instances_div, self.cats_vals_div, self.percentage_div, self.pi_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
-		self.distribution_data = self.get_distribution_data()
-		self.distribution_cds, self.distribution_fig  = self.load_distribution_fig()
+		self.distribution_data, self.distribution_data_df = self.get_distribution_data()
+		self.distribution_cds, self.distribution_fig = self.load_distribution_fig()
 		self.fairness_data = self.get_fairness_data()
 		self.primary_fairness_cds, self.primary_fairness_fig = self.load_primary_fairness_fig()
-		self.fairness_metrics_cds, self.relationships_fig = self.load_relationships_fig()
-		self.dataset_cds, self.data_table_fig = self.load_dataset_fig()
+		self.fairness_metrics_cds, self.distribution_df_cds, self.fairness_metrics_fig, self.distribution_table = self.load_relationships_fig()
+		self.dataset_cds, self.unfair_button, self.data_table_fig = self.load_dataset_fig()
 		self.combinations_fig = Spacer()
 		self.comparator_fig = Spacer()
 
@@ -41,15 +45,12 @@ class FairHIL:
 	def launch_ui(self):
 		curdoc().title = "FairHIL"
 		curdoc().clear()
-		# ui = layout(children=[
-		# 	[self.overview_fig, self.data_table_fig],
-		# 	[self.causal_graph_fig, column(self.primary_fairness_fig, self.distribution_fig), self.relationships_fig],
-		# ])
 		ui = layout(children=[
-			[self.overview_fig],
-			[self.causal_graph_fig, column(self.primary_fairness_fig, self.distribution_fig), self.data_table_fig],
-			[self.relationships_fig]
-		])
+			[column(self.title_div, self.instances_div, self.cats_vals_div, self.pi_fig, self.percentage_div, sizing_mode='stretch_height'), self.causal_graph_fig, column(self.primary_fairness_fig, self.distribution_fig, sizing_mode='stretch_width')],
+			[self.fairness_metrics_fig, self.distribution_table],
+			[column(self.data_table_fig, self.unfair_button, sizing_mode='stretch_width')],
+			[self.alert_callback_holder]
+		], sizing_mode='stretch_width')
 		curdoc().add_root(ui)
 
 	def load_overview_fig(self):
@@ -62,17 +63,17 @@ class FairHIL:
 			cats_vals_lst.append(f"{cat}: {val}")
 		cats_vals_div = Div(text=f"{', '.join(cats_vals_lst)}", style={"text-align": "center", "font-size": "125%"})
 		percentage_div = Div(text=f"{np.round((cats_vals.max() / cats_vals.sum()) * 100, 1)}% major class",
-							 style={"text-align": "center", "font-size": "125%", "color": "blue"})
-		pi_fig = self.get_pi_fig(cats_vals, 50, 50)
-		return layout(children=[[title_div, instances_div, cats_vals_div, percentage_div, pi_fig]],
-					  sizing_mode="stretch_both")
+							 style={"text-align": "center", "font-size": "125%"})
+		pi_fig = self.get_pi_fig(cats_vals, math.floor(self.plot_size / 2), math.floor(self.plot_size / 2))
+
+		return title_div, instances_div, cats_vals_div, percentage_div, pi_fig
 
 	def get_pi_fig(self, series, height, width):
 		data = series.reset_index(name='value').rename(columns={'index': 'target'})
 		data['angle'] = data['value'] / data['value'].sum() * 2 * math.pi
 		data['color'] = ('#253494', '#41b6c4') if len(series) < 3 else YlGnBu[len(series)]
 		pi_fig = figure(height=height, width=width, toolbar_location=None, tools="hover", tooltips="@target: @value",
-						x_range=Range1d(-1, 1))
+						x_range=Range1d(-1, 1), sizing_mode='fixed')
 		pi_fig.wedge(x=0, y=1, radius=0.5, start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
 					line_color="white", fill_color='color', source=data)
 		pi_fig.axis.axis_label = None
@@ -90,9 +91,11 @@ class FairHIL:
 			alg = cdt.causality.graph.PC()
 
 		G = alg.create_graph_from_data(self.CONFIG.ENCODED_DATASET)
-		plot = Plot(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
-					title="Causal Discovery Graph", title_location="left")
-		plot.add_tools(HoverTool(tooltips=None), TapTool())  # PanTool(), WheelZoomTool()
+		fig = Figure(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
+					 title="Causal Discovery Graph", title_location="left", tools="")
+		# plot = Plot(x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
+		# 			title="Causal Discovery Graph", title_location="left")
+		fig.add_tools(HoverTool(tooltips=None), TapTool(), PanTool(), ResetTool())
 		hv_graph = hv.Graph.from_networkx(G, nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
 		hv_rendered = hv.render(hv_graph, 'bokeh')
 		graph_renderer = hv_rendered.select_one(GraphRenderer)
@@ -115,6 +118,14 @@ class FairHIL:
 		graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color=edge_selection_color, line_width=2)
 		graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=edge_hover_color, line_width=2)
 
+		dummy_for_legend = [fig.line(x=[1, 1], y=[1, 1], line_width=15, color=c, name='dummy_for_legend') for c in [node_normal_color, named.green, named.gold]]
+		l = Legend(title="Colour key", items=[LegendItem(label=lab, renderers=[gly]) for lab, gly in zip(['Normal', 'Target', 'Protected'], dummy_for_legend)])
+		fig.add_layout(l)
+
+		fig.yaxis.major_tick_line_color = None
+		fig.yaxis.minor_tick_line_color = None
+		fig.axis.visible = False
+
 		graph_renderer.selection_policy = NodesAndLinkedEdges()
 		source = ColumnDataSource(
 			{'x': hv_graph.nodes['x'], 'y': hv_graph.nodes['y'], 'field': self.CONFIG.ENCODED_DATASET.columns})
@@ -123,12 +134,13 @@ class FairHIL:
 
 		graph_renderer.node_renderer.data_source.selected.on_change("indices", self.update_distribution_cds,
 																	self.update_fairness_cds,
-																	self.update_fairness_metrics_cds)
+																	self.update_fairness_metrics_cds,
+																	self.update_distribution_df_cds)
 
-		plot.renderers.append(graph_renderer)
-		plot.renderers.append(labels)
+		fig.renderers.append(graph_renderer)
+		fig.renderers.append(labels)
 
-		return plot
+		return fig
 
 	def load_distribution_fig(self):
 		distribution_cds = ColumnDataSource(data={'top': [], 'bottom': [], 'left': [], 'right': []})
@@ -139,35 +151,38 @@ class FairHIL:
 							  line_color="white")
 		distribution_fig.axis.visible = False
 
-		# for column_idx in range(len(self.CONFIG.ENCODED_DATASET.columns)):
-		# 	hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET.iloc[:, column_idx],
-		# 							   weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT],
-		# 							   bins=2 if self.CONFIG.ENCODED_DATASET.iloc[:, column_idx].nunique() == 2 else 10)
-		# 	distribution_data.append({'top': hist, 'bottom': [0] * len(hist), 'left': edges[:-1], 'right': edges[1:]})
-
 		return distribution_cds, distribution_fig
 
 	def get_distribution_data(self):
 		distribution_data = {}
+		distribution_data_df = {}
+		columns = ['Range', 'Positive class', 'Negative class', 'Total', 'Positive rate']
+		distribution_data_df['empty'] = pd.DataFrame(columns=columns)
 		for feat in self.CONFIG.DATASET_FEATS:
-			# self.CONFIG.ENCODED_DATASET['bin'] = pd.cut(self.CONFIG.ENCODED_DATASET[feat], bins=2 if feat in self.CONFIG.BINARY_FEATS else 8).astype(str)
-			# df = self.CONFIG.ENCODED_DATASET.groupby('bin').bin.count().rename_axis('count').reset_index()
-			# df.columns = ['bin', 'count']
-			# distribution_data[feat] = df
-			distribution, counts = pd.cut(self.CONFIG.ENCODED_DATASET[feat], bins=2 if feat in self.CONFIG.BINARY_FEATS else 8, retbins=True)
-			print(f"DISTRIBUTION: {distribution}\nCOUNTS: {counts}")
-			distribution_data[feat] = [distribution, counts]
-		return distribution_data
+			histogram_data = {}
+			hist, edges = np.histogram(self.CONFIG.ENCODED_DATASET[feat], weights=self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT], bins=2 if feat in self.CONFIG.BINARY_FEATS else 8)
+			histogram_data['hist'] = hist
+			histogram_data['interval'] = edges
+
+			distribution_data[feat] = histogram_data
+			neg_count = {i: 0 for i in range(1, len(edges) + 1)}
+			for edge, label in zip(np.digitize(self.CONFIG.ENCODED_DATASET[feat], edges), self.CONFIG.ENCODED_DATASET[self.CONFIG.TARGET_FEAT]):
+				if label != self.CONFIG.TARGET_FAVOURABLE_CLASS:
+					neg_count[edge] = neg_count[edge] + 1
+			neg = list(neg_count.values())
+			pos = hist
+			total = [x+y for x, y in zip(neg, pos)]
+			pos_rate = [round(np.true_divide(x, y), 2) for x, y in zip(pos, total)]
+			df = pd.DataFrame(list(zip(zip(edges, edges[1:]), pos, neg_count.values(), total, pos_rate)))
+			df.columns = columns
+			distribution_data_df[feat] = df
+
+		return distribution_data, distribution_data_df
 
 	def update_distribution_cds(self, attr, old, new):
 		if new:
-			# df = self.distribution_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
-			# hist, edges = df['count'].values, df['bin'].values
-			# print(f"X: {edges[:-1]}, Y: {edges[1:]}")
-
-			data = self.distribution_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
-			self.distribution_cds.data = {'top': data[0], 'bottom': [0] * len(data[0]), 'left': data[1][:-1], 'right': data[1][1:]}
-			# self.distribution_cds.data = self.distribution_data[int(new[0])]
+			hist_dat = self.distribution_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
+			self.distribution_cds.data = {'top': hist_dat['hist'], 'bottom': [0] * len(hist_dat['hist']), 'left': hist_dat['interval'][:-1], 'right': hist_dat['interval'][1:]}
 
 	def load_primary_fairness_fig(self):
 		primary_fairness_cds = ColumnDataSource(data={'y': [], 'right': []})
@@ -203,8 +218,6 @@ class FairHIL:
 
 				classified_metric = ClassificationMetric(dataset_orig, dataset_pred, unprivileged_groups=unprivileged_groups,
 														 privileged_groups=privileged_groups)
-				# binary_metric = BinaryLabelDatasetMetric(dataset_orig, unprivileged_groups=unprivileged_groups,
-				# 										 privileged_groups=privileged_groups)
 				result = {"Statistical Parity Difference": classified_metric.statistical_parity_difference(),
 						  "Equality of Opportunity Difference": classified_metric.equal_opportunity_difference(),
 						  "Average Odds Difference": classified_metric.average_abs_odds_difference(),
@@ -234,12 +247,15 @@ class FairHIL:
 	def load_relationships_fig(self):
 		fairness_metrics_cds = ColumnDataSource(data={'x': [], 'top': []})
 
-		# x_range=list(list(self.fairness_data.values())[0].keys())
-		fairness_metrics_fig = figure(width=self.plot_size, height=math.floor(self.plot_size / 2),
+		# fairness_metrics_fig = figure(width=self.plot_size, height=math.floor(self.plot_size / 2),
+		# 							  x_range=[metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS],
+		# 							  y_range=Range1d(
+		# 								  min([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS]),
+		# 								  max([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS])
+		# 							  ),
+		# 							  title="Fairness metrics deep-dive", title_location="above", tools="")
+		fairness_metrics_fig = figure(height=math.floor(self.plot_size / 2),
 									  x_range=[metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS],
-									  # y_range=Range1d(
-										#   min([min(list(d.values())) for d in [self.fairness_data[metric] for metric in self.CONFIG.DEEP_DIVE_METRICS]]),
-										#   max([max(list(d.values())) for d in [self.fairness_data[metric] for metric in self.CONFIG.DEEP_DIVE_METRICS]])),
 									  y_range=Range1d(
 										  min([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS]),
 										  max([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS])
@@ -247,26 +263,36 @@ class FairHIL:
 									  title="Fairness metrics deep-dive", title_location="above", tools="")
 		fairness_metrics_fig.vbar(x='x', top='top', bottom=0, width=0.5, source=fairness_metrics_cds)
 
+		cols = [TableColumn(field=x, title=x) for x in self.distribution_data_df['empty']]
+		distribution_df_cds = ColumnDataSource(self.distribution_data_df['empty'])
+		# , title = "Distribution and rates"
+		# distribution_table = DataTable(columns=cols, source=distribution_df_cds, width=self.plot_size, height=math.floor(self.plot_size / 2))
+		distribution_table = DataTable(height=math.floor(self.plot_size / 2), columns=cols, source=distribution_df_cds)
+
 		relationships_fig = layout(children=[
-			[fairness_metrics_fig]
+			[fairness_metrics_fig, distribution_table],
 		])
 
-		return fairness_metrics_cds, relationships_fig
+		return fairness_metrics_cds, distribution_df_cds, fairness_metrics_fig, distribution_table
 
 	def update_fairness_metrics_cds(self, attr, old, new):
 		if new:
 			data = self.fairness_data[self.CONFIG.DATASET_FEATS[int(new[0])]]
 			self.fairness_metrics_cds.data = {'x': [metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS], 'top': [data[metric.string] for metric in self.CONFIG.DEEP_DIVE_METRICS]}
 
+	def update_distribution_df_cds(self, attr, old, new):
+		if new:
+			self.distribution_df_cds.data = self.distribution_data_df[self.CONFIG.DATASET_FEATS[int(new[0])]]
+
 	def load_dataset_fig(self):
 		cols = [TableColumn(field=x, title=x) for x in self.CONFIG.DATASET.columns]
 		dataset_cds = ColumnDataSource(self.CONFIG.DATASET)
-		data_table = DataTable(columns=cols, source=dataset_cds, height=math.floor(0.9 * self.plot_size))
+		data_table = DataTable(columns=cols, source=dataset_cds)
 		unfair_button = Button(label="Mark data point as unfair", button_type="danger",
 							   height=math.floor(0.1 * self.plot_size))
 
 		unfair_button.on_click(self.mark_unfair)
-		return dataset_cds, column(unfair_button, data_table)
+		return dataset_cds, unfair_button, data_table
 
 	def mark_unfair(self):
-		print(f"ROW: {self.dataset_cds.selected.__getattribute__('indices')} MARKED UNFAIR")
+		self.alert_callback_holder.text = f"Instance {self.dataset_cds.selected.__getattribute__('indices')} marked unfair"

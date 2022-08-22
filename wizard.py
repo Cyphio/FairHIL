@@ -13,17 +13,17 @@ class Wizard:
 
 		# Instantiating Stage1 UI components
 		self.file_input_div = Div(text="Drag and drop or click to upload any <b>binary-labelled CSV</b> ML Dataset from local machine:")
-		self.selection_div = Div(text="Please choose a set-up mode:")
+		self.selection_div = Div(text="Choose a set-up mode:")
 		self.file_input = FileInput(accept=".csv")
 		self.mode_button = RadioButtonGroup(labels=get_options(ModeOptions), active=0)
 		self.submit_stage_1 = Button(label="Submit", button_type="success")
-		self.callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
+		self.alert_callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
 
 		# Defining Stage1 hooks
 		self.file_input.on_change('value', self.set_dataset)
 		self.mode_button.on_change('active', self.set_mode)
 		self.submit_stage_1.on_click(self.launch_stage_2)
-		self.callback_holder.js_on_change('text', CustomJS(args={}, code='alert(cb_obj.text);'))
+		self.alert_callback_holder.js_on_change('text', CustomJS(args={}, code='alert(cb_obj.text);'))
 
 		# Instantiating Stage2 UI components
 		self.target_feature_div = Div(text="Select a target feature:")
@@ -81,7 +81,6 @@ class Wizard:
 			self.CONFIG.MODE = ModeOptions.BASIC
 		elif self.mode_button.active == 1:
 			self.CONFIG.MODE = ModeOptions.ADVANCED
-		print(self.CONFIG.MODE)
 
 	def get_privileged_classes(self):
 		pattern = re.compile(f"({'|'.join([feat for feat in self.CONFIG.DATASET_FEATS])}{1}) (<|<=|>|>=|==) ([0-9]+|{'|'.join(list(itertools.chain.from_iterable([np.unique(self.CONFIG.DATASET[feat].values.astype(str)) for feat in self.CONFIG.DATASET_FEATS])))}{1})")
@@ -101,16 +100,17 @@ class Wizard:
 	def launch_stage_1(self):
 		curdoc().clear()
 		curdoc().title = "Wizard Stage 1"
-		grid = gridplot([
-			[self.file_input_div, self.file_input],
-			[self.selection_div, self.mode_button],
-		])
-		ui = column(grid, self.submit_stage_1, self.callback_holder)
+		ui = layout(children=[
+			[column(self.file_input_div, self.selection_div), column(self.file_input, self.mode_button)],
+			[self.submit_stage_1],
+			[self.alert_callback_holder]
+		], sizing_mode='stretch_width')
+		# ui = column(grid, self.submit_stage_1, self.alert_callback_holder)
 		curdoc().add_root(ui)
 
 	def launch_stage_2(self):
 		if len(self.CONFIG.DATASET) == 0:
-			self.callback_holder.text = "Please upload a Dataset"
+			self.alert_callback_holder.text = "Please upload a Dataset"
 		else:
 			curdoc().clear()
 			curdoc().title = "Wizard Stage 2"
@@ -122,44 +122,51 @@ class Wizard:
 			self.sensi_feats_choice.update(options=dataset_feats)
 			if self.CONFIG.MODE.value == 1:
 				# Advanced config UI
-				grid = gridplot([
+				ui = layout(children=[
+					[self.data_table],
 					[self.sensi_feats_choice_div, self.sensi_feats_choice],
 					[column(self.priv_classes_div, self.priv_classes_format, self.priv_classes_eg), self.priv_classes_input],
 					[self.target_feature_div, self.target_feature],
 					[self.primary_metric_div, self.primary_metric],
 					[self.deep_dive_metrics_div, self.deep_dive_metrics],
-					[self.binning_process_div, self.binning_process],
+					# [self.binning_process_div, self.binning_process],
 					[self.discovery_algorithm_div, self.discovery_algorithm],
-					[self.card_generation_div, self.card_generation],
-				])
-				ui = column(self.data_table, grid, self.submit_stage_2, self.callback_holder)
+					# [self.card_generation_div, self.card_generation],
+					[self.submit_stage_2],
+					[self.alert_callback_holder]
+				], sizing_mode='stretch_width')
 			else:
 				# Basic config UI
-				grid = gridplot([
+				ui = layout(children=[
+					[self.data_table],
 					[self.sensi_feats_choice_div, self.sensi_feats_choice],
 					[column(self.priv_classes_div, self.priv_classes_format, self.priv_classes_eg), self.priv_classes_input],
 					[self.target_feature_div, self.target_feature],
 					[self.primary_metric_div, self.primary_metric],
 					[self.deep_dive_metrics_div, self.deep_dive_metrics],
-				])
-				ui = column(self.data_table, grid, self.submit_stage_2, self.callback_holder)
+					[self.submit_stage_2],
+					[self.alert_callback_holder]
+				], sizing_mode='stretch_width')
 			curdoc().add_root(ui)
 
 	def launch_fairhil(self):
 		privileged_classes = self.get_privileged_classes()
 		if len(self.sensi_feats_choice.value) == 0:
-			self.callback_holder.text = "No protected features selected" \
-										"\n\nLaunching FairHIL without fairness metrics"
+			self.alert_callback_holder.text = "No protected features selected" \
+										"\n\nMust select at least one protected feature and define the privileged group"
+		elif len(self.deep_dive_metrics.value) == 0:
+			self.alert_callback_holder.text = "No deep-dive metrics selected" \
+										"\n\nMust select at least one deep-dive metric"
 		elif len(self.sensi_feats_choice.value) > 0 and not self.privileged_classes_complete(privileged_classes):
-			self.callback_holder.text = "Defined privileged group boundaries not in correct format OR missing group boundary definitions" \
+			self.alert_callback_holder.text = "Defined privileged group is not in correct format OR there are missing group boundary definitions" \
 										"\n\nCan't launch FairHIL"
-			return None
-		self.CONFIG.PRIVILEGED_CLASSES = self.privileged_classes_to_lambda(privileged_classes)
-		self.CONFIG.SENSITIVE_FEATS = self.sensi_feats_choice.value
-		self.CONFIG.TARGET_FEAT = self.target_feature.value
-		self.CONFIG.PRIMARY_METRIC = FairnessMetrics(self.primary_metric.value)
-		self.CONFIG.DEEP_DIVE_METRICS = [FairnessMetrics(value) for value in self.deep_dive_metrics.value]
-		self.CONFIG.BINNING_PROCESS = BinningProcesses(self.binning_process.value)
-		self.CONFIG.DISCOVERY_ALG = DiscoveryAlgorithms(self.discovery_algorithm.value)
-		self.CONFIG.CARD_GEN_PROCESS = CardGenerationProcesses(self.card_generation.value)
-		FairHIL(self.CONFIG)
+		else:
+			self.CONFIG.PRIVILEGED_CLASSES = self.privileged_classes_to_lambda(privileged_classes)
+			self.CONFIG.SENSITIVE_FEATS = self.sensi_feats_choice.value
+			self.CONFIG.TARGET_FEAT = self.target_feature.value
+			self.CONFIG.PRIMARY_METRIC = FairnessMetrics(self.primary_metric.value)
+			self.CONFIG.DEEP_DIVE_METRICS = [FairnessMetrics(value) for value in self.deep_dive_metrics.value]
+			self.CONFIG.BINNING_PROCESS = BinningProcesses(self.binning_process.value)
+			self.CONFIG.DISCOVERY_ALG = DiscoveryAlgorithms(self.discovery_algorithm.value)
+			self.CONFIG.CARD_GEN_PROCESS = CardGenerationProcesses(self.card_generation.value)
+			FairHIL(self.CONFIG)
