@@ -51,7 +51,7 @@ class FairnessMetrics(aenum.Enum):
 	EoOD = 1, "Equality of Opportunity Difference", "EoOD"
 	AOD = 2, "Average Odds Difference", "AOD"
 	DI = 3, "Disparate Impact", "DI"
-	TI = 4, "Theill Index", "TI"
+	TI = 4, "Theil Index", "TI"
 
 	def __str__(self):
 		return self.string

@@ -105,7 +105,6 @@ class Wizard:
 			[self.submit_stage_1],
 			[self.alert_callback_holder]
 		], sizing_mode='stretch_width')
-		# ui = column(grid, self.submit_stage_1, self.alert_callback_holder)
 		curdoc().add_root(ui)
 
 	def launch_stage_2(self):

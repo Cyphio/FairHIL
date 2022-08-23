@@ -1,5 +1,3 @@
-import itertools
-
 import cdt
 import networkx as nx
 from bokeh.colors import named
@@ -14,12 +12,15 @@ import xgboost as xgb
 from aif360.datasets import *
 from aif360.metrics import *
 hv.extension("bokeh")
+np.seterr(divide='ignore', invalid='ignore')
+
 
 class FairHIL:
 
 	def __init__(self, config):
 		self.CONFIG = config
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"  # Path to Rscript.exe
+
 		self.plot_size = 400
 
 		self.alert_callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
@@ -27,7 +28,6 @@ class FairHIL:
 
 		# Loading/instantiating UI components
 		print("Loading FairHIL interface...")
-		# self.overview_fig = self.load_overview_fig()
 		self.title_div, self.instances_div, self.cats_vals_div, self.percentage_div, self.pi_fig = self.load_overview_fig()
 		self.causal_graph_fig = self.load_causal_graph_fig()
 		self.distribution_data, self.distribution_data_df = self.get_distribution_data()
@@ -93,8 +93,6 @@ class FairHIL:
 		G = alg.create_graph_from_data(self.CONFIG.ENCODED_DATASET)
 		fig = Figure(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
 					 title="Causal Discovery Graph", title_location="left", tools="")
-		# plot = Plot(x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
-		# 			title="Causal Discovery Graph", title_location="left")
 		fig.add_tools(HoverTool(tooltips=None), TapTool(), PanTool(), ResetTool())
 		hv_graph = hv.Graph.from_networkx(G, nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
 		hv_rendered = hv.render(hv_graph, 'bokeh')
@@ -222,7 +220,7 @@ class FairHIL:
 						  "Equality of Opportunity Difference": classified_metric.equal_opportunity_difference(),
 						  "Average Odds Difference": classified_metric.average_abs_odds_difference(),
 						  "Disparate Impact": classified_metric.disparate_impact(),
-						  "Theill Index": classified_metric.theil_index()}
+						  "Theil Index": classified_metric.theil_index()}
 				# Removing NaN values from metrics (a particular issue with Disparate Impact
 				cleaned_result = {k: 0 if np.isnan(v) else v for k, v in result.items()}
 				fairness_data[column] = cleaned_result
@@ -231,7 +229,7 @@ class FairHIL:
 										 "Equality of Opportunity Difference": 0,
 										 "Average Odds Difference": 0,
 										 "Disparate Impact": 0,
-										 "Theill Index": 0}
+										 "Theil Index": 0}
 		return fairness_data
 
 	def get_y_pred(self, X):
@@ -247,13 +245,6 @@ class FairHIL:
 	def load_relationships_fig(self):
 		fairness_metrics_cds = ColumnDataSource(data={'x': [], 'top': []})
 
-		# fairness_metrics_fig = figure(width=self.plot_size, height=math.floor(self.plot_size / 2),
-		# 							  x_range=[metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS],
-		# 							  y_range=Range1d(
-		# 								  min([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS]),
-		# 								  max([d[metric.string] for d in self.fairness_data.values() for metric in self.CONFIG.DEEP_DIVE_METRICS])
-		# 							  ),
-		# 							  title="Fairness metrics deep-dive", title_location="above", tools="")
 		fairness_metrics_fig = figure(height=math.floor(self.plot_size / 2),
 									  x_range=[metric.acronym for metric in self.CONFIG.DEEP_DIVE_METRICS],
 									  y_range=Range1d(
@@ -265,13 +256,7 @@ class FairHIL:
 
 		cols = [TableColumn(field=x, title=x) for x in self.distribution_data_df['empty']]
 		distribution_df_cds = ColumnDataSource(self.distribution_data_df['empty'])
-		# , title = "Distribution and rates"
-		# distribution_table = DataTable(columns=cols, source=distribution_df_cds, width=self.plot_size, height=math.floor(self.plot_size / 2))
 		distribution_table = DataTable(height=math.floor(self.plot_size / 2), columns=cols, source=distribution_df_cds)
-
-		relationships_fig = layout(children=[
-			[fairness_metrics_fig, distribution_table],
-		])
 
 		return fairness_metrics_cds, distribution_df_cds, fairness_metrics_fig, distribution_table
 
