@@ -54,7 +54,7 @@ class FairHIL:
 		curdoc().add_root(ui)
 
 	def load_overview_fig(self):
-		title_div = Div(text="<b>System Overview<b>", style={"text-align": "center", "font-size": "125%"})
+		title_div = Div(text="<b>System overview<b>", style={"text-align": "center", "font-size": "125%"})
 		instances_div = Div(text=f"Total dataset instances: {len(self.CONFIG.DATASET)}",
 							style={"text-align": "center", "font-size": "125%"})
 		cats_vals = self.CONFIG.DATASET[self.CONFIG.TARGET_FEAT].value_counts()
@@ -92,7 +92,7 @@ class FairHIL:
 
 		G = alg.create_graph_from_data(self.CONFIG.ENCODED_DATASET)
 		fig = Figure(width=self.plot_size, height=self.plot_size, x_range=Range1d(-1.1, 1.1), y_range=Range1d(-1.1, 1.1),
-					 title="Causal Discovery Graph", title_location="left", tools="")
+					 title="Causal Reasoning Graph", title_location="left", tools="")
 		fig.add_tools(HoverTool(tooltips=None), TapTool(), PanTool(), ResetTool())
 		hv_graph = hv.Graph.from_networkx(G, nx.circular_layout(G, scale=0.8, center=(0, 0))).opts(directed=True)
 		hv_rendered = hv.render(hv_graph, 'bokeh')
@@ -218,7 +218,7 @@ class FairHIL:
 														 privileged_groups=privileged_groups)
 				result = {"Statistical Parity Difference": classified_metric.statistical_parity_difference(),
 						  "Equality of Opportunity Difference": classified_metric.equal_opportunity_difference(),
-						  "Average Odds Difference": classified_metric.average_abs_odds_difference(),
+						  "Average Absolute Odds Difference": classified_metric.average_abs_odds_difference(),
 						  "Disparate Impact": classified_metric.disparate_impact(),
 						  "Theil Index": classified_metric.theil_index()}
 				# Removing NaN values from metrics (a particular issue with Disparate Impact
@@ -227,7 +227,7 @@ class FairHIL:
 			else:
 				fairness_data[column] = {"Statistical Parity Difference": 0,
 										 "Equality of Opportunity Difference": 0,
-										 "Average Odds Difference": 0,
+										 "Average Absolute Odds Difference": 0,
 										 "Disparate Impact": 0,
 										 "Theil Index": 0}
 		return fairness_data

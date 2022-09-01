@@ -16,7 +16,7 @@ class Wizard:
 		self.selection_div = Div(text="Choose a set-up mode:")
 		self.file_input = FileInput(accept=".csv")
 		self.mode_button = RadioButtonGroup(labels=get_options(ModeOptions), active=0)
-		self.submit_stage_1 = Button(label="Submit", button_type="success")
+		self.submit_stage_1 = Button(label="Go to next stage of set-up", button_type="success")
 		self.alert_callback_holder = PreText(text='', css_classes=['hidden'], visible=False)
 
 		# Defining Stage1 hooks
@@ -47,7 +47,7 @@ class Wizard:
 										  value=DiscoveryAlgorithms.PC.string)
 		self.card_generation = Select(options=get_options(CardGenerationProcesses),
 									  value=CardGenerationProcesses.MANUAL.string)
-		self.submit_stage_2 = Button(label="Submit", button_type="success")
+		self.submit_stage_2 = Button(label="Load FairHIL", button_type="success")
 
 		# Defining Stage2 hooks
 		self.submit_stage_2.on_click(self.launch_fairhil)
