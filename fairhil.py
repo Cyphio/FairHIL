@@ -11,6 +11,7 @@ import holoviews as hv
 import xgboost as xgb
 from aif360.datasets import *
 from aif360.metrics import *
+
 hv.extension("bokeh")
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -18,8 +19,9 @@ np.seterr(divide='ignore', invalid='ignore')
 class FairHIL:
 
 	def __init__(self, config):
-		self.CONFIG = config
 		cdt.SETTINGS.rpath = "C:/Program Files/R/R-4.2.1/bin/Rscript"  # Path to Rscript.exe
+
+		self.CONFIG = config
 
 		self.plot_size = 400
 

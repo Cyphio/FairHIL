@@ -1,0 +1,22 @@
+# For the Python Causal Discovery Toolbox (CDT) package to work, you must install R on your system, run R as admin and
+# copy & paste the below commands into R cmd line BEFORE pip installing Python requirements in python_requirements.txt
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("graph", "RBGL", "Rgraphviz"))
+install.packages("pcalg")
+install.packages("kpcalg")
+install.packages("bnlearn")
+install.packages("sparsebn")
+install.packages("SID")
+install.packages("CAM")
+install.packages("D2C")
+install.packages("MASS")
+install.packages("momentchi2")
+install.packages("devtools")
+library(devtools)
+install_github("Diviyan-Kalainathan/RCIT", force = TRUE)
+library(RCIT)
+RCIT(rnorm(1000),rnorm(1000),rnorm(1000))
+RCoT(rnorm(1000),rnorm(1000),rnorm(1000))
+RCoT(rnorm(1000),rnorm(1000),matrix(rnorm(2000),1000,2))
