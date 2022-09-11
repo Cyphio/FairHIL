@@ -11,6 +11,8 @@ import holoviews as hv
 import xgboost as xgb
 from aif360.datasets import *
 from aif360.metrics import *
+import pandas as pd
+import numpy as np
 
 hv.extension("bokeh")
 np.seterr(divide='ignore', invalid='ignore')
