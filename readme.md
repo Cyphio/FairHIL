@@ -2,7 +2,7 @@
 
 As our daily lives increasingly rely on automated decision systems, it's more important than ever to recognise, explore and mitigate bias in the datasets that train these systems. Even if initially unnoticeable, embedded bias is exacerbated when deployed at scale, leading to potentially harmful favouritism and prejudice. This project promotes the adoption of bias exploration in the Machine Learning pipeline. We aim to present the first implementation of FairHIL: a human-in-the-loop interface for intuitively exploring bias in datasets by leveraging causality, widening able participation beyond Data Scientists to Domain Experts.
 
-![image](https://user-images.githubusercontent.com/50034346/189933033-08f3127e-f1bd-4c4b-a2cc-a9f979a7f6df.png)
+![image](https://user-images.githubusercontent.com/50034346/189933367-ed4d63e5-6698-4412-b078-242a090436d1.png)
 
 # Installation
 
